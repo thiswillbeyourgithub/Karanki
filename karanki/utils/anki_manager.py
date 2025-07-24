@@ -432,7 +432,7 @@ class AnkiManager:
             chunker = SemanticChunker(
                 embedding_model="minishlab/potion-multilingual-128M",
                 threshold=0.5,
-                chunk_size=512,
+                chunk_size=max(512, len(highlight_text) + 256),
                 min_sentences=1,
             )
 
