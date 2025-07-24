@@ -448,7 +448,7 @@ class AnkiManager:
                     target_chunk = chunk
                     break
 
-            assert target_chunk
+            assert target_chunk, f"Couldn't find chunk for highlight '{highlight_text}'"
 
             # Adjust positions relative to chunk
             if chunk.end_index <= end_pos and ichunk != len(chunks):
