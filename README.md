@@ -1,5 +1,7 @@
 # WARNING: THIS IS A WORK IN PROGRESS
 
+This is part of the [Karakeep Community Scripts](https://github.com/thiswillbeyourgithub/karakeep_python_api) but deserved its own repository.
+
 # Karanki
 
 **Bidirectional synchronization between Karakeep highlights and Anki flashcards**
