@@ -8,7 +8,7 @@ Created with assistance from aider.chat (https://github.com/Aider-AI/aider/)
 """
 
 import re
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Literal
 from dataclasses import asdict, is_dataclass
 from loguru import logger
 from py_ankiconnect import PyAnkiconnect
@@ -27,6 +27,38 @@ except ImportError:
     def optional_typecheck(callable_obj: Callable) -> Callable:
         """Dummy decorator if beartype is not installed."""
         return callable_obj
+
+
+@optional_typecheck
+def adjust_index_to_sentence(
+    index: int,
+    sentences_indexes: List[List[int]],
+    only: Optional[Literal["start", "end"]] = None,
+) -> int:
+    for isind, sind in enumerate(sentences_indexes):
+        start, end = sind
+        if not (start <= index <= end):
+            continue
+        if only == "start":
+            best_match = start
+            break
+        elif only == "end":
+            best_match = end
+            break
+        else:
+            candidates = []
+            if isind != 0:
+                candidates.extend(sentences_indexes[isind - 1])
+            candidates.extend([start, end])
+            if isind != len(sentences_indexes):
+                candidates.extend(sentences_indexes[isind + 1])
+            if not (min(candidates) <= index <= max(candidates)):
+                continue
+            diffs = [abs(index - elem) for elem in candidates]
+            best_match = candidates[diffs.index(min(diffs))]
+            break
+
+    return best_match
 
 
 class AnkiManager:
@@ -454,6 +486,12 @@ class AnkiManager:
         # Create chunks
         chunks = chunker.chunk(full_text)
 
+        # find all sentences index
+        sentences_indexes: List[List[int]] = []
+        for chunk in chunks:
+            for sentence in chunk.sentences:
+                sentences_indexes.append([sentence.start_index, sentence.end_index])
+
         # Find which chunk contains the highlight
         target_chunk = None
         for ichunk, chunk in enumerate(chunks):
@@ -473,8 +511,26 @@ class AnkiManager:
             context = target_chunk.text
             highlight_start_in_context = start_pos - target_chunk.start_index
             highlight_end_in_context = end_pos - target_chunk.start_index
+        assert (
+            highlight_start_in_context != highlight_end_in_context
+        ), f"Unadjusted borders are the same: {adjusted_highlight_start_in_context}"
+
+        # adjust indexes to sentences borders
+        highlight_start_in_context = adjust_index_to_sentence(
+            index=highlight_start_in_context,
+            sentences_indexes=sentences_indexes,
+            only="start",
+        )
+        highlight_end_in_context = adjust_index_to_sentence(
+            index=highlight_end_in_context,
+            sentences_indexes=sentences_indexes,
+            only="end",
+        )
 
         # sanity check
+        assert (
+            highlight_start_in_context != highlight_end_in_context
+        ), f"Adjusted borders are the same: {highlight_start_in_context}"
         assert (
             highlight_end_in_context > 0
         ), f"highlight_end_in_context is below 0: {highlight_end_in_context}"
