@@ -447,25 +447,21 @@ class AnkiManager:
 
             # Find which chunk contains the highlight
             target_chunk = None
-            for chunk in chunks:
+            for ichunk, chunk in enumerate(chunks):
                 if chunk.start_index <= start_pos < chunk.end_index:
                     target_chunk = chunk
                     break
 
-            if not target_chunk:
-                # Fallback: create context manually
-                logger.debug("Chunk not found, using manual context creation")
-                context_size = 200
-                context_start = max(0, start_pos - context_size)
-                context_end = min(len(full_text), end_pos + context_size)
-                context = full_text[context_start:context_end]
+            assert target_chunk
 
-                # Adjust positions relative to context
-                highlight_start_in_context = start_pos - context_start
-                highlight_end_in_context = end_pos - context_start
+            # Adjust positions relative to chunk
+            if chunk.end_index <= end_pos and ichunk != len(chunks):
+                next_chunk = chunks[ichunk + 1]
+                context = target_chunk + next_chunk.text
+                highlight_start_in_context = start_pos - target_chunk.start_index
+                highlight_end_in_context = end_pos - next_chunk.start_index
             else:
                 context = target_chunk.text
-                # Adjust positions relative to chunk
                 highlight_start_in_context = start_pos - target_chunk.start_index
                 highlight_end_in_context = end_pos - target_chunk.start_index
 
