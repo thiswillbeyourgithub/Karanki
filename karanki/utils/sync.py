@@ -10,7 +10,7 @@ Created with assistance from aider.chat (https://github.com/Aider-AI/aider/)
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -375,7 +375,7 @@ class KarankiBidirSync:
         logger.info("Sync state saved successfully")
 
     @optional_typecheck
-    def _get_all_karakeep_notes(self) -> Dict[Union[str, int], Dict[str, Any]]:
+    def _get_all_karakeep_notes(self) -> Dict[str, Dict[str, Any]]:
         """Get all notes from Karakeep-related decks."""
         all_notes = {}
 

@@ -8,7 +8,7 @@ Created with assistance from aider.chat (https://github.com/Aider-AI/aider/)
 """
 
 import re
-from typing import Dict, List, Optional, Any, Union
+from typing import Dict, List, Optional, Any
 from dataclasses import asdict, is_dataclass
 from loguru import logger
 from py_ankiconnect import PyAnkiconnect
@@ -649,7 +649,7 @@ class AnkiManager:
             raise
 
     @optional_typecheck
-    def find_notes_in_deck(self, deck_name: str) -> List[Union[str, int]]:
+    def find_notes_in_deck(self, deck_name: str) -> List[str]:
         """
         Find all notes in a specific deck.
 
@@ -665,7 +665,7 @@ class AnkiManager:
         """
         try:
             query = f"deck:{deck_name}"
-            note_ids = self.akc("findNotes", query=query)
+            note_ids = [str(nid) for nid in self.akc("findNotes", query=query)]
             logger.debug(f"Found {len(note_ids)} notes in deck '{deck_name}'")
             return note_ids
         except Exception as e:
