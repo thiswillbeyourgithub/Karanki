@@ -435,6 +435,21 @@ class AnkiManager:
             min_sentences=1,
         )
 
+        # strip the text, adjusting the highlight position if needed
+        # end portion, adjusting the last index if the highlight is until the end
+        highlight_pos = list(highlight_pos)
+        diff_len = len(full_text) - len(full_text.rstrip())
+        if diff_len > 0 and highlight_pos[-1] == len(full_text):
+            full_text = full_text.rstrip()
+            highlight_pos[-1] -= diff_len
+        # start portion: adjusting both positions
+        full_text_stripped = full_text.strip()
+        diff_len = len(full_text) - len(full_text_stripped)
+        if diff_len > 0:
+            full_text = full_text.rstrip()
+            highlight_pos[0] -= diff_len
+            highlight_pos[1] -= diff_len
+
         # Create chunks
         chunks = chunker.chunk(full_text)
 
@@ -452,7 +467,7 @@ class AnkiManager:
         # Adjust positions relative to chunk
         if chunk.end_index <= end_pos and ichunk != len(chunks):
             next_chunk = chunks[ichunk + 1]
-            context = target_chunk.text.strip() + " " + next_chunk.text.strip()
+            context = target_chunk.text + " " + next_chunk.text
             highlight_start_in_context = start_pos - target_chunk.start_index
             highlight_end_in_context = end_pos - target_chunk.start_index
         else:
