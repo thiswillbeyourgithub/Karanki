@@ -138,7 +138,6 @@ class AnkiManager:
         The notetype is a cloze type with fields for:
         - Text (the context with cloze)
         - Source (link back to Karakeep)
-        - Tags (for tag syncing)
         """
         logger.info("Checking/creating Karakeep notetype...")
 
@@ -173,11 +172,6 @@ class AnkiManager:
 <div class="source">
     <strong>Source:</strong> {{Source}}
 </div>
-{{#Tags}}
-<div class="tags">
-    <strong>Tags:</strong> {{Tags}}
-</div>
-{{/Tags}}
 {{#Metadata}}
 <div class="metadata" style="display: none;">
     {{Metadata}}
@@ -193,7 +187,7 @@ class AnkiManager:
         # Define the notetype structure
         notetype_config = {
             "modelName": self.KARAKEEP_NOTETYPE,
-            "inOrderFields": ["Text", "Header", "Source", "Tags", "Metadata"],
+            "inOrderFields": ["Text", "Header", "Source", "Metadata"],
             "css": """
 .card {
     font-family: arial;
@@ -215,12 +209,6 @@ class AnkiManager:
     margin-top: 20px;
     border-top: 1px solid #ccc;
     padding-top: 10px;
-}
-
-.tags {
-    font-size: 11px;
-    color: #888;
-    margin-top: 10px;
 }
 
 .header {
@@ -553,8 +541,8 @@ class AnkiManager:
             original_url = bookmark_data.get("content", {}).get("url", None) or "No URL"
             original_link = f'<a href="{original_url}">{original_url}</a>'
 
-            # Prepare tags field (for future tag sync)
-            tags_field = ""
+            # Prepare tags (for future tag sync)
+            tags_to_add = []
             if self.config.sync_tags:
                 bookmark_tags = bookmark_data.get("tags", [])
                 if bookmark_tags:
@@ -564,7 +552,7 @@ class AnkiManager:
                         for tag in tag_names
                         if tag
                     ]
-                    tags_field = ", ".join(prefixed_tags)
+                    tags_to_add.extend(prefixed_tags)
 
             # Create metadata field with TOML format
             import rtoml
@@ -594,16 +582,14 @@ class AnkiManager:
                     "Text": cloze_text,
                     "Header": bookmark_link,
                     "Source": original_url,
-                    "Tags": tags_field,
                     "Metadata": metadata_toml,
                 },
-                "tags": ["karakeep", f"karakeep::{highlight_color}"],
+                "tags": ["karakeep", f"karakeep::color::{highlight_color}"],
             }
 
-            if self.config.sync_tags and tags_field:
+            if self.config.sync_tags:
                 # Add individual tags to Anki note tags
-                individual_tags = [tag.strip() for tag in tags_field.split(",")]
-                note_config["tags"].extend(individual_tags)
+                note_config["tags"].extend(tags_to_add)
 
             note_id = self.akc("addNote", note=note_config)
             logger.debug(
