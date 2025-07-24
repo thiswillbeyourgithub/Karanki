@@ -427,92 +427,84 @@ class AnkiManager:
         str
             Text with cloze deletion around highlight
         """
-        try:
-            # Initialize semantic chunker with multilingual model as per spec
-            chunker = SemanticChunker(
-                embedding_model="minishlab/potion-multilingual-128M",
-                threshold=0.5,
-                chunk_size=max(512, len(highlight_text) + 256),
-                min_sentences=1,
-            )
+        # Initialize semantic chunker with multilingual model as per spec
+        chunker = SemanticChunker(
+            embedding_model="minishlab/potion-multilingual-128M",
+            threshold=0.5,
+            chunk_size=max(512, len(highlight_text) + 256),
+            min_sentences=1,
+        )
 
-            # Create chunks
-            chunks = chunker.chunk(full_text)
+        # Create chunks
+        chunks = chunker.chunk(full_text)
 
-            start_pos, end_pos = highlight_pos
+        start_pos, end_pos = highlight_pos
 
-            # Find which chunk contains the highlight
-            target_chunk = None
-            for ichunk, chunk in enumerate(chunks):
-                if chunk.start_index <= start_pos < chunk.end_index:
-                    target_chunk = chunk
-                    break
+        # Find which chunk contains the highlight
+        target_chunk = None
+        for ichunk, chunk in enumerate(chunks):
+            if chunk.start_index <= start_pos < chunk.end_index:
+                target_chunk = chunk
+                break
 
-            assert target_chunk, f"Couldn't find chunk for highlight '{highlight_text}'"
+        assert target_chunk, f"Couldn't find chunk for highlight '{highlight_text}'"
 
-            # Adjust positions relative to chunk
-            if chunk.end_index <= end_pos and ichunk != len(chunks):
-                next_chunk = chunks[ichunk + 1]
-                context = target_chunk.text.strip() + " " + next_chunk.text.strip()
-                highlight_start_in_context = start_pos - target_chunk.start_index
-                highlight_end_in_context = end_pos - target_chunk.end_index
-            else:
-                context = target_chunk.text
-                highlight_start_in_context = start_pos - target_chunk.start_index
-                highlight_end_in_context = end_pos - target_chunk.start_index
+        # Adjust positions relative to chunk
+        if chunk.end_index <= end_pos and ichunk != len(chunks):
+            next_chunk = chunks[ichunk + 1]
+            context = target_chunk.text.strip() + " " + next_chunk.text.strip()
+            highlight_start_in_context = start_pos - target_chunk.start_index
+            highlight_end_in_context = end_pos - target_chunk.end_index
+        else:
+            context = target_chunk.text
+            highlight_start_in_context = start_pos - target_chunk.start_index
+            highlight_end_in_context = end_pos - target_chunk.start_index
 
-            # sanity check
-            assert (
-                highlight_end_in_context > 0
-            ), f"highlight_end_in_context is below 0: {highlight_end_in_context}"
-            assert (
-                highlight_start_in_context > 0
-            ), f"highlight_start_in_context is below 0: {highlight_start_in_context}"
-            assert highlight_end_in_context <= len(
-                context
-            ), f"Wrong size of highlight end: {highlight_end_in_context} and {len(context)}"
-            assert highlight_start_in_context <= len(
-                context
-            ), f"Wrong size of highlight start: {highlight_start_in_context} and {len(context)}"
-            assert (
-                highlight_end_in_context > highlight_start_in_context
-            ), f"Wrong order of highlight borders: {highlight_start_in_context} and {highlight_end_in_context}"
+        # sanity check
+        assert (
+            highlight_end_in_context > 0
+        ), f"highlight_end_in_context is below 0: {highlight_end_in_context}"
+        assert (
+            highlight_start_in_context > 0
+        ), f"highlight_start_in_context is below 0: {highlight_start_in_context}"
+        assert highlight_end_in_context <= len(
+            context
+        ), f"Wrong size of highlight end: {highlight_end_in_context} and {len(context)}"
+        assert highlight_start_in_context <= len(
+            context
+        ), f"Wrong size of highlight start: {highlight_start_in_context} and {len(context)}"
+        assert (
+            highlight_end_in_context > highlight_start_in_context
+        ), f"Wrong order of highlight borders: {highlight_start_in_context} and {highlight_end_in_context}"
 
-            # Create cloze deletion
-            before_highlight = context[:highlight_start_in_context]
-            # we use actual_highlight instead of highlight_text because otherwise the newlines are removed
-            actual_highlight = context[
-                highlight_start_in_context:highlight_end_in_context
-            ]
-            after_highlight = context[highlight_end_in_context:]
+        # Create cloze deletion
+        before_highlight = context[:highlight_start_in_context]
+        # we use actual_highlight instead of highlight_text because otherwise the newlines are removed
+        actual_highlight = context[highlight_start_in_context:highlight_end_in_context]
+        after_highlight = context[highlight_end_in_context:]
 
-            # remove cloze markers that could be there by chance
-            before_highlight = (
-                before_highlight.replace("{{", "{ { ")
-                .replace("}}", "} } ")
-                .replace("::", ": : ")
-            )
-            actual_highlight = (
-                actual_highlight.replace("{{", "{ { ")
-                .replace("}}", "} } ")
-                .replace("::", ": : ")
-            )
-            after_highlight = (
-                after_highlight.replace("{{", "{ { ")
-                .replace("}}", "} } ")
-                .replace("::", ": : ")
-            )
+        # remove cloze markers that could be there by chance
+        before_highlight = (
+            before_highlight.replace("{{", "{ { ")
+            .replace("}}", "} } ")
+            .replace("::", ": : ")
+        )
+        actual_highlight = (
+            actual_highlight.replace("{{", "{ { ")
+            .replace("}}", "} } ")
+            .replace("::", ": : ")
+        )
+        after_highlight = (
+            after_highlight.replace("{{", "{ { ")
+            .replace("}}", "} } ")
+            .replace("::", ": : ")
+        )
 
-            # Create cloze with c1 (first cloze)
-            cloze_text = (
-                f"{before_highlight} {{{{c1::{actual_highlight}}}}} {after_highlight}"
-            )
-            return cloze_text.strip().replace("\n", "<br>")
-
-        except Exception as e:
-            logger.error(f"Failed to create context with cloze: {e}")
-            # Fallback to simple cloze
-            return f"{{{{c1::{highlight_text}}}}}"
+        # Create cloze with c1 (first cloze)
+        cloze_text = (
+            f"{before_highlight} {{{{c1::{actual_highlight}}}}} {after_highlight}"
+        )
+        return cloze_text.strip().replace("\n", "<br>")
 
     @optional_typecheck
     def create_note(
