@@ -595,10 +595,9 @@ class KarankiBidirSync:
                             anki_tags.append(anki_tag)
 
                     if anki_tags:
-                        # Update the note's Tags field
-                        tags_field = ", ".join(anki_tags)
-                        self.anki_manager.update_note(note_id, {"Tags": tags_field})
-                        logger.debug(f"Updated tags for note {note_id}: {tags_field}")
+                        # Update the note's tags
+                        self.anki_manager.update_note(note_id, {}, tags=anki_tags)
+                        logger.debug(f"Updated tags for note {note_id}: {anki_tags}")
                         count += 1
 
             except Exception as e:
