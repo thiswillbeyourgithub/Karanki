@@ -471,7 +471,7 @@ class AnkiManager:
 
             # Create cloze with c1 (first cloze)
             cloze_text = (
-                f"{before_highlight}{{{{c1::{highlight_text}}}}}{after_highlight}"
+                f"{before_highlight} {{{{c1::{highlight_text}}}}} {after_highlight}"
             )
             return cloze_text.strip().replace("\n", "<br>")
 
