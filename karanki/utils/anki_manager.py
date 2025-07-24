@@ -477,17 +477,6 @@ class AnkiManager:
                 highlight_start_in_context = start_pos - target_chunk.start_index
                 highlight_end_in_context = end_pos - target_chunk.start_index
 
-            # Validate positions
-            if (
-                highlight_start_in_context < 0
-                or highlight_end_in_context > len(context)
-                or highlight_start_in_context >= highlight_end_in_context
-            ):
-                logger.warning(
-                    "Invalid highlight positions in context, using simple cloze"
-                )
-                return f"{{{{c1::{highlight_text}}}}}"
-
             # Create cloze deletion
             before_highlight = context[:highlight_start_in_context]
             after_highlight = context[highlight_end_in_context:]
