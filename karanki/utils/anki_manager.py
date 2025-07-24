@@ -505,12 +505,10 @@ class AnkiManager:
         if chunk.end_index <= end_pos and ichunk != len(chunks):
             next_chunk = chunks[ichunk + 1]
             context = target_chunk.text + " " + next_chunk.text
-            highlight_start_in_context = start_pos - target_chunk.start_index
-            highlight_end_in_context = end_pos - target_chunk.start_index
         else:
             context = target_chunk.text
-            highlight_start_in_context = start_pos - target_chunk.start_index
-            highlight_end_in_context = end_pos - target_chunk.start_index
+        highlight_start_in_context = start_pos - target_chunk.start_index
+        highlight_end_in_context = end_pos - target_chunk.start_index
         assert (
             highlight_start_in_context != highlight_end_in_context
         ), f"Unadjusted borders are the same: {adjusted_highlight_start_in_context}"
