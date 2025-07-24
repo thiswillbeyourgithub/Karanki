@@ -147,7 +147,9 @@ class AnkiManager:
             model_names = self.akc("modelNames")
 
             if self.KARAKEEP_NOTETYPE in model_names:
-                logger.debug(f"Notetype '{self.KARAKEEP_NOTETYPE}' already exists, updating templates...")
+                logger.debug(
+                    f"Notetype '{self.KARAKEEP_NOTETYPE}' already exists, updating templates..."
+                )
                 self._update_karakeep_notetype_templates()
                 logger.info(f"Updated notetype '{self.KARAKEEP_NOTETYPE}' templates")
                 return
@@ -247,16 +249,16 @@ class AnkiManager:
     @optional_typecheck
     def _update_karakeep_notetype_templates(self) -> None:
         """Update the templates of the existing Karakeep notetype."""
-        
+
         # Get the current template definitions
         templates = self._get_karakeep_templates()
-        
+
         # Use updateModelTemplates to update the existing notetype
-        self.akc("updateModelTemplates", model={
-            "name": self.KARAKEEP_NOTETYPE,
-            "templates": templates
-        })
-        
+        self.akc(
+            "updateModelTemplates",
+            model={"name": self.KARAKEEP_NOTETYPE, "templates": templates},
+        )
+
         logger.debug(f"Updated templates for notetype '{self.KARAKEEP_NOTETYPE}'")
 
     @optional_typecheck
