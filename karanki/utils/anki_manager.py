@@ -562,7 +562,8 @@ class AnkiManager:
                     bookmark_data.get("content", {}).get("title", "") or "Untitled"
                 )
             bookmark_link = f'<a href="{bookmark_url}">{bookmark_title}</a>'
-            breakpoint()
+            original_url = bookmark_data.get("content", {}).get("url", None) or "No URL"
+            original_link = f'<a href="{original_url}">{original_url}</a>'
 
             # Prepare tags field (for future tag sync)
             tags_field = ""
@@ -604,7 +605,7 @@ class AnkiManager:
                 "fields": {
                     "Text": cloze_text,
                     "Header": bookmark_link,
-                    "Source": bookmark_url,
+                    "Source": original_url,
                     "Tags": tags_field,
                     "Metadata": metadata_toml,
                 },
