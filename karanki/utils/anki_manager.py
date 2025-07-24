@@ -461,9 +461,22 @@ class AnkiManager:
                 highlight_start_in_context = start_pos - target_chunk.start_index
                 highlight_end_in_context = end_pos - target_chunk.start_index
 
+            # sanity check
+            assert (
+                highlight_end_in_context > 0
+            ), f"highlight_end_in_context is below 0: {highlight_end_in_context}"
+            assert (
+                highlight_start_in_context > 0
+            ), f"highlight_start_in_context is below 0: {highlight_start_in_context}"
             assert highlight_end_in_context <= len(
                 context
             ), f"Wrong size of highlight end: {highlight_end_in_context} and {len(context)}"
+            assert highlight_start_in_context <= len(
+                context
+            ), f"Wrong size of highlight start: {highlight_start_in_context} and {len(context)}"
+            assert (
+                highlight_end_in_context > highlight_start_in_context
+            ), f"Wrong order of highlight borders: {highlight_start_in_context} and {highlight_end_in_context}"
 
             # Create cloze deletion
             before_highlight = context[:highlight_start_in_context]
