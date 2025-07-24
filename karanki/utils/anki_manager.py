@@ -555,13 +555,13 @@ class AnkiManager:
 
             # Create source link
             base_url = self.config.karakeep_base_url.replace("/api/v1", "")
-            source_url = f"{base_url}/dashboard/preview/{bookmark_id}"
+            bookmark_url = f"{base_url}/dashboard/preview/{bookmark_id}"
             bookmark_title = bookmark_data.get("title", "") or "Untitled"
             if bookmark_title == "Untitled":
                 bookmark_title = (
                     bookmark_data.get("content", {}).get("title", "") or "Untitled"
                 )
-            source_link = f'<a href="{source_url}">{bookmark_title}</a>'
+            bookmark_link = f'<a href="{bookmark_url}">{bookmark_title}</a>'
 
             # Prepare tags field (for future tag sync)
             tags_field = ""
@@ -602,8 +602,8 @@ class AnkiManager:
                 "modelName": self.KARAKEEP_NOTETYPE,
                 "fields": {
                     "Text": cloze_text,
-                    "Header": source_link,
-                    "Source": source_url,
+                    "Header": bookmark_link,
+                    "Source": bookmark_url,
                     "Tags": tags_field,
                     "Metadata": metadata_toml,
                 },
