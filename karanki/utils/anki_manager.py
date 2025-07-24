@@ -461,6 +461,10 @@ class AnkiManager:
                 highlight_start_in_context = start_pos - target_chunk.start_index
                 highlight_end_in_context = end_pos - target_chunk.start_index
 
+            assert highlight_end_in_context <= len(
+                context
+            ), f"Wrong size of highlight end: {highlight_end_in_context} and {len(context)}"
+
             # Create cloze deletion
             before_highlight = context[:highlight_start_in_context]
             # we use actual_highlight instead of highlight_text because otherwise the newlines are removed
