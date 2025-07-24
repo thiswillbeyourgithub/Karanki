@@ -291,26 +291,41 @@ class AnkiManager:
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
-        
+
             # Convert block-level elements to newlines before extracting text
             # This ensures paragraph breaks and line breaks are preserved
-            block_elements = soup.find_all(['p', 'div', 'br', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'pre'])
+            block_elements = soup.find_all(
+                [
+                    "p",
+                    "div",
+                    "br",
+                    "h1",
+                    "h2",
+                    "h3",
+                    "h4",
+                    "h5",
+                    "h6",
+                    "li",
+                    "blockquote",
+                    "pre",
+                ]
+            )
             for element in block_elements:
-                if element.name == 'br':
-                    element.replace_with('\n')
+                if element.name == "br":
+                    element.replace_with("\n")
                 else:
                     # Add newlines before and after block elements
                     if element.string:
-                        element.string.replace_with('\n' + element.get_text() + '\n')
+                        element.string.replace_with("\n" + element.get_text() + "\n")
                     else:
                         # For elements with nested content, insert newlines around them
                         if element.previous_sibling:
-                            element.insert_before('\n')
+                            element.insert_before("\n")
                         if element.next_sibling:
-                            element.insert_after('\n')
-        
+                            element.insert_after("\n")
+
             # Get text with newline separator to preserve structure
-            text = soup.get_text(separator='\n')
+            text = soup.get_text(separator="\n")
 
             # Split into lines and clean up while preserving structure
             lines = text.splitlines()
@@ -327,7 +342,7 @@ class AnkiManager:
             # Only remove truly excessive newlines (4 or more consecutive)
             # But preserve paragraph breaks (double newlines)
             text = re.sub(r"\n{4,}", "\n\n\n", text)
-        
+
             # Ensure we don't accidentally remove all paragraph breaks
             # Convert any remaining multiple spaces to single spaces while preserving newlines
             text = re.sub(r"[ \t]+", " ", text)
