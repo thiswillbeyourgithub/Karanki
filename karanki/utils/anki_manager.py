@@ -463,11 +463,32 @@ class AnkiManager:
 
             # Create cloze deletion
             before_highlight = context[:highlight_start_in_context]
+            # we use actual_highlight instead of highlight_text because otherwise the newlines are removed
+            actual_highlight = context[
+                highlight_start_in_context:highlight_end_in_context
+            ]
             after_highlight = context[highlight_end_in_context:]
+
+            # remove cloze markers that could be there by chance
+            before_highlight = (
+                before_highlight.replace("{{", "{ { ")
+                .replace("}}", "} } ")
+                .replace("::", ": : ")
+            )
+            actual_highlight = (
+                actual_highlight.replace("{{", "{ { ")
+                .replace("}}", "} } ")
+                .replace("::", ": : ")
+            )
+            after_highlight = (
+                after_highlight.replace("{{", "{ { ")
+                .replace("}}", "} } ")
+                .replace("::", ": : ")
+            )
 
             # Create cloze with c1 (first cloze)
             cloze_text = (
-                f"{before_highlight} {{{{c1::{highlight_text}}}}} {after_highlight}"
+                f"{before_highlight} {{{{c1::{actual_highlight}}}}} {after_highlight}"
             )
             return cloze_text.strip().replace("\n", "<br>")
 
