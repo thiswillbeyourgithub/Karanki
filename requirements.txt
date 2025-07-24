@@ -1,0 +1,23 @@
+# Core dependencies
+click>=8.0.0
+loguru>=0.7.0
+
+# Anki integration
+py-ankiconnect>=1.0.0
+
+# Karakeep integration  
+karakeep-python-api>=1.0.0
+
+# Text processing
+beautifulsoup4>=4.11.0
+chonkie[semantic]>=0.1.0
+corpus-matcher>=1.0.0
+
+# Dependencies required by above packages
+numpy>=1.21.0
+requests>=2.28.0
+
+# Utilities
+pydantic>=2.0.0
+rtoml>=0.7.0
+platformdirs>=4.3.8
