@@ -56,6 +56,7 @@ VERSION = "0.1.0"
 @click.option(
     "--sync-tags",
     is_flag=True,
+    default=True,
     help="Enable bidirectional tag synchronization between Karakeep and Anki",
 )
 @click.option(
