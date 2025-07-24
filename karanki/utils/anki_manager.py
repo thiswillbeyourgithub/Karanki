@@ -449,11 +449,10 @@ class AnkiManager:
             full_text = full_text.rstrip()
             highlight_pos[0] -= diff_len
             highlight_pos[1] -= diff_len
+        start_pos, end_pos = highlight_pos
 
         # Create chunks
         chunks = chunker.chunk(full_text)
-
-        start_pos, end_pos = highlight_pos
 
         # Find which chunk contains the highlight
         target_chunk = None
