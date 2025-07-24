@@ -604,7 +604,9 @@ class AnkiManager:
             raise ContentProcessingError(error_msg) from e
 
     @optional_typecheck
-    def update_note(self, note_id: str, fields: Dict[str, str], tags: Optional[List[str]] = None) -> None:
+    def update_note(
+        self, note_id: str, fields: Dict[str, str], tags: Optional[List[str]] = None
+    ) -> None:
         """
         Update an existing Anki note.
 
@@ -622,24 +624,26 @@ class AnkiManager:
             if fields:
                 self.akc("updateNote", id=note_id, fields=fields)
                 logger.debug(f"Updated fields for note {note_id}")
-            
+
             # Update tags if provided
             if tags is not None:
                 # Get current tags to remove them first
                 note_info = self.akc("notesInfo", notes=[note_id])
                 if note_info:
                     current_tags = note_info[0].get("tags", [])
-                    
+
                     # Remove all current tags
                     if current_tags:
-                        self.akc("removeTags", notes=[note_id], tags=" ".join(current_tags))
-                    
+                        self.akc(
+                            "removeTags", notes=[note_id], tags=" ".join(current_tags)
+                        )
+
                     # Add new tags
                     if tags:
                         self.akc("addTags", notes=[note_id], tags=" ".join(tags))
-                
+
                 logger.debug(f"Updated tags for note {note_id}: {tags}")
-            
+
         except Exception as e:
             logger.error(f"Failed to update note {note_id}: {e}")
             raise
