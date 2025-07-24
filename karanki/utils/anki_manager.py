@@ -427,6 +427,10 @@ class AnkiManager:
         str
             Text with cloze deletion around highlight
         """
+        assert (
+            highlight_text in full_text
+        ), f"Missing highlight_text from full_text: '{highlight_text}'"
+
         try:
             # Initialize semantic chunker with multilingual model as per spec
             chunker = SemanticChunker(
