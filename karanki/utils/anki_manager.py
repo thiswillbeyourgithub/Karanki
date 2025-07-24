@@ -133,6 +133,7 @@ class AnkiManager:
     def ensure_notetype_exists(self) -> None:
         """
         Ensure the Karakeep notetype exists, creating it if necessary.
+        Also updates the templates if the notetype already exists to keep them in sync with code changes.
 
         The notetype is a cloze type with fields for:
         - Text (the context with cloze)
@@ -146,7 +147,9 @@ class AnkiManager:
             model_names = self.akc("modelNames")
 
             if self.KARAKEEP_NOTETYPE in model_names:
-                logger.debug(f"Notetype '{self.KARAKEEP_NOTETYPE}' already exists")
+                logger.debug(f"Notetype '{self.KARAKEEP_NOTETYPE}' already exists, updating templates...")
+                self._update_karakeep_notetype_templates()
+                logger.info(f"Updated notetype '{self.KARAKEEP_NOTETYPE}' templates")
                 return
 
             # Create the notetype
@@ -157,6 +160,29 @@ class AnkiManager:
             error_msg = f"Failed to ensure notetype exists: {e}"
             logger.error(error_msg)
             raise AnkiConnectionError(error_msg) from e
+
+    @optional_typecheck
+    def _get_karakeep_templates(self) -> Dict[str, Dict[str, str]]:
+        """Get the standard Karakeep notetype templates."""
+        return {
+            "Cloze": {
+                "Front": '{{#Header}}<div class="header"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}',
+                "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}
+<div class="source">
+    <strong>Source:</strong> {{Source}}
+</div>
+{{#Tags}}
+<div class="tags">
+    <strong>Tags:</strong> {{Tags}}
+</div>
+{{/Tags}}
+{{#Metadata}}
+<div class="metadata" style="display: none;">
+    {{Metadata}}
+</div>
+{{/Metadata}}""",
+            }
+        }
 
     @optional_typecheck
     def _create_karakeep_notetype(self) -> None:
@@ -206,29 +232,32 @@ class AnkiManager:
             """,
             "cardTemplates": [
                 {
-                    "Name": "Cloze",
-                    "Front": '{{#Header}}<div class="header"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}',
-                    "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}
-<div class="source">
-    <strong>Source:</strong> {{Source}}
-</div>
-{{#Tags}}
-<div class="tags">
-    <strong>Tags:</strong> {{Tags}}
-</div>
-{{/Tags}}
-{{#Metadata}}
-<div class="metadata" style="display: none;">
-    {{Metadata}}
-</div>
-{{/Metadata}}""",
+                    "Name": template_name,
+                    "Front": template_data["Front"],
+                    "Back": template_data["Back"],
                 }
+                for template_name, template_data in self._get_karakeep_templates().items()
             ],
             "isCloze": True,
         }
 
         # Create the notetype
         self.akc("createModel", **notetype_config)
+
+    @optional_typecheck
+    def _update_karakeep_notetype_templates(self) -> None:
+        """Update the templates of the existing Karakeep notetype."""
+        
+        # Get the current template definitions
+        templates = self._get_karakeep_templates()
+        
+        # Use updateModelTemplates to update the existing notetype
+        self.akc("updateModelTemplates", model={
+            "name": self.KARAKEEP_NOTETYPE,
+            "templates": templates
+        })
+        
+        logger.debug(f"Updated templates for notetype '{self.KARAKEEP_NOTETYPE}'")
 
     @optional_typecheck
     def _extract_text_from_html(self, html_content: str) -> str:
