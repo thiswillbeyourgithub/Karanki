@@ -455,7 +455,7 @@ class AnkiManager:
                 next_chunk = chunks[ichunk + 1]
                 context = target_chunk.text.strip() + " " + next_chunk.text.strip()
                 highlight_start_in_context = start_pos - target_chunk.start_index
-                highlight_end_in_context = end_pos
+                highlight_end_in_context = end_pos - target_chunk.end_index
             else:
                 context = target_chunk.text
                 highlight_start_in_context = start_pos - target_chunk.start_index
