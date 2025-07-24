@@ -8,7 +8,7 @@ Created with assistance from aider.chat (https://github.com/Aider-AI/aider/)
 """
 
 import re
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 from dataclasses import asdict, is_dataclass
 from loguru import logger
 from py_ankiconnect import PyAnkiconnect
@@ -562,6 +562,7 @@ class AnkiManager:
                     bookmark_data.get("content", {}).get("title", "") or "Untitled"
                 )
             bookmark_link = f'<a href="{bookmark_url}">{bookmark_title}</a>'
+            breakpoint()
 
             # Prepare tags field (for future tag sync)
             tags_field = ""
@@ -609,6 +610,7 @@ class AnkiManager:
                 },
                 "tags": ["karakeep", f"karakeep::{highlight_color}"],
             }
+            breakpoint()
 
             if self.config.sync_tags and tags_field:
                 # Add individual tags to Anki note tags
@@ -647,7 +649,7 @@ class AnkiManager:
             raise
 
     @optional_typecheck
-    def find_notes_in_deck(self, deck_name: str) -> List[str]:
+    def find_notes_in_deck(self, deck_name: str) -> List[Union[str, int]]:
         """
         Find all notes in a specific deck.
 
