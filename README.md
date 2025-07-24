@@ -1,3 +1,5 @@
+# WARNING: THIS IS A WORK IN PROGRESS
+
 # Karanki
 
 **Bidirectional synchronization between Karakeep highlights and Anki flashcards**
