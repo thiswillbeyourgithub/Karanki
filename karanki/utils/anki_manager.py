@@ -593,7 +593,7 @@ class AnkiManager:
                     self.config.anki_tag_prefix if self.config.sync_tags else None
                 ),
             }
-            metadata_toml = rtoml.dumps(metadata)
+            metadata_toml = rtoml.dumps(metadata).strip().replace("\n", "<br>")
 
             # Determine target deck using hierarchical structure
             deck_name = self._get_deck_name_for_color(highlight_color)
