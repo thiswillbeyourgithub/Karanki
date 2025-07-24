@@ -453,7 +453,7 @@ class AnkiManager:
             # Adjust positions relative to chunk
             if chunk.end_index <= end_pos and ichunk != len(chunks):
                 next_chunk = chunks[ichunk + 1]
-                context = target_chunk + next_chunk.text
+                context = target_chunk.text.strip() + " " + next_chunk.text.strip()
                 highlight_start_in_context = start_pos - target_chunk.start_index
                 highlight_end_in_context = end_pos - next_chunk.start_index
             else:
