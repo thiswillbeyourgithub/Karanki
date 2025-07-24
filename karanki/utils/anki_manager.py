@@ -496,8 +496,7 @@ class AnkiManager:
             cloze_text = (
                 f"{before_highlight}{{{{c1::{highlight_text}}}}}{after_highlight}"
             )
-
-            return cloze_text.strip()
+            return cloze_text.strip().replace("\n", "<br>")
 
         except Exception as e:
             logger.error(f"Failed to create context with cloze: {e}")
@@ -611,7 +610,6 @@ class AnkiManager:
                 },
                 "tags": ["karakeep", f"karakeep::{highlight_color}"],
             }
-            breakpoint()
 
             if self.config.sync_tags and tags_field:
                 # Add individual tags to Anki note tags
