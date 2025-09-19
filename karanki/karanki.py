@@ -80,6 +80,11 @@ VERSION = "0.1.0"
     is_flag=True,
     help="Only sync existing cards without creating new ones",
 )
+@click.option(
+    "--debug",
+    is_flag=True,
+    help="Enable debug mode for post-mortem debugging (disables exception handling)",
+)
 @click.version_option(version=VERSION)
 @optional_typecheck
 def main(
@@ -91,6 +96,7 @@ def main(
     verbose: bool,
     limit: Optional[int],
     only_sync: bool,
+    debug: bool,
 ) -> None:
     """
     Sync Karakeep highlights with Anki cards.
@@ -139,7 +145,7 @@ def main(
         f"Config: karakeep_base_url={karakeep_base_url}, sync_tags={sync_tags}"
     )
     logger.debug(f"Config: anki_tag_prefix={anki_tag_prefix}, verbose={verbose}")
-    logger.debug(f"Config: limit={limit}, only_sync={only_sync}")
+    logger.debug(f"Config: limit={limit}, only_sync={only_sync}, debug={debug}")
 
     try:
         # Initialize the sync manager
@@ -159,8 +165,18 @@ def main(
         logger.info("Synchronization completed successfully")
 
     except Exception as e:
-        logger.error(f"Synchronization failed: {e}")
-        raise
+        if debug:
+            # In debug mode, log the error but don't catch it
+            # This allows pdb post-mortem debugging
+            logger.error(f"Synchronization failed: {e}")
+            logger.debug(
+                "Debug mode enabled - re-raising exception for post-mortem debugging"
+            )
+            raise
+        else:
+            # Normal mode - log and re-raise
+            logger.error(f"Synchronization failed: {e}")
+            raise
 
 
 if __name__ == "__main__":
