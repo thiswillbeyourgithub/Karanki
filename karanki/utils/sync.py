@@ -95,6 +95,7 @@ class KarankiBidirSync:
         anki_tag_prefix: str = "karakeep",
         limit: Optional[int] = None,
         only_sync: bool = False,
+        debug: bool = False,
     ):
         """
         Initialize the synchronization manager.
@@ -129,6 +130,7 @@ class KarankiBidirSync:
             limit=limit,
             only_sync=only_sync,
         )
+        self.debug = debug
 
         logger.debug(f"Initializing KarankiBidirSync with config: {self.config}")
 
@@ -460,6 +462,8 @@ class KarankiBidirSync:
                     logger.error(
                         f"Failed to create note for highlight {highlight_id}: {e}"
                     )
+                    if self.debug:
+                        raise
                     # Continue processing other highlights
                     continue
         return count
@@ -602,6 +606,8 @@ class KarankiBidirSync:
 
             except Exception as e:
                 logger.warning(f"Failed to sync tags for highlight {highlight_id}: {e}")
+                if self.debug:
+                    raise
 
         logger.info("Tag synchronization completed")
         return count

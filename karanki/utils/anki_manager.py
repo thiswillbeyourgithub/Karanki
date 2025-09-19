@@ -714,27 +714,32 @@ class AnkiManager:
             Tags to set on the note (replaces existing tags)
         """
         try:
+            # Convert note_id to integer for AnkiConnect API
+            note_id_int = int(note_id)
+
             # Update fields if provided
             if fields:
-                self.akc("updateNote", id=note_id, fields=fields)
+                self.akc("updateNote", id=note_id_int, fields=fields)
                 logger.debug(f"Updated fields for note {note_id}")
 
             # Update tags if provided
             if tags is not None:
                 # Get current tags to remove them first
-                note_info = self.akc("notesInfo", notes=[note_id])
+                note_info = self.akc("notesInfo", notes=[note_id_int])
                 if note_info:
                     current_tags = note_info[0].get("tags", [])
 
                     # Remove all current tags
                     if current_tags:
                         self.akc(
-                            "removeTags", notes=[note_id], tags=" ".join(current_tags)
+                            "removeTags",
+                            notes=[note_id_int],
+                            tags=" ".join(current_tags),
                         )
 
                     # Add new tags
                     if tags:
-                        self.akc("addTags", notes=[note_id], tags=" ".join(tags))
+                        self.akc("addTags", notes=[note_id_int], tags=" ".join(tags))
 
                 logger.debug(f"Updated tags for note {note_id}: {tags}")
 
@@ -777,8 +782,11 @@ class AnkiManager:
             The ID of the note to suspend
         """
         try:
+            # Convert note_id to integer for AnkiConnect API
+            note_id_int = int(note_id)
+
             # Get cards for this note and suspend them
-            card_ids = self.akc("findCards", query=f"nid:{note_id}")
+            card_ids = self.akc("findCards", query=f"nid:{note_id_int}")
             if card_ids:
                 self.akc("suspend", cards=card_ids)
                 logger.debug(f"Suspended {len(card_ids)} cards for note {note_id}")
@@ -802,8 +810,11 @@ class AnkiManager:
             True if note has karakeep::unlinked tag, False otherwise
         """
         try:
+            # Convert note_id to integer for AnkiConnect API
+            note_id_int = int(note_id)
+
             # Get note info including tags
-            note_info = self.akc("notesInfo", notes=[note_id])
+            note_info = self.akc("notesInfo", notes=[note_id_int])
             if not note_info:
                 return False
 

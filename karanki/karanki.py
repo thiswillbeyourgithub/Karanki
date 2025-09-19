@@ -157,6 +157,7 @@ def main(
             anki_tag_prefix=anki_tag_prefix,
             limit=limit,
             only_sync=only_sync,
+            debug=debug,
         )
 
         # Run the synchronization
