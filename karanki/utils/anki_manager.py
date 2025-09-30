@@ -386,8 +386,9 @@ class AnkiManager:
                         if element.next_sibling:
                             element.insert_after("\n")
 
-            # Get text with newline separator to preserve structure
-            text = soup.get_text(separator="\n")
+            # Get text without adding separators between elements
+            # We rely on the newlines we explicitly inserted around block-level elements
+            text = soup.get_text(separator="")
 
             # Split into lines and clean up while preserving structure
             lines = text.splitlines()
@@ -794,9 +795,6 @@ class AnkiManager:
             logger.debug(
                 f"Created note {note_id} for highlight {highlight_data.get('id', 'unknown')}"
             )
-
-            # Breakpoint for debugging Text field parsing issues with newlines
-            breakpoint()
 
             return str(note_id)
 
