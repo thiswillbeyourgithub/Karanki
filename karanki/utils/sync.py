@@ -186,7 +186,9 @@ class KarankiBidirSync:
             # Phase 3: Process synchronization
             self._process_sync(highlights, sync_state)
 
-            # Phase 4: Save updated state
+            # Phase 4: Final state save (redundant but ensures consistency)
+            # State is already saved after each iteration, but we do a final save
+            # to update the last_updated timestamp
             self._save_sync_state(sync_state)
 
             logger.info("Synchronization process completed successfully")
@@ -427,6 +429,8 @@ class KarankiBidirSync:
                 self.state_manager.update_mapping_status(
                     sync_state, highlight_id, "missing_from_both"
                 )
+                # Save state after each modification to preserve progress
+                self._save_sync_state(sync_state)
                 count += 1
         return count
 
@@ -462,6 +466,8 @@ class KarankiBidirSync:
                     self.state_manager.add_mapping(
                         sync_state, highlight_id, note_id, bookmark_id, color, deck_name
                     )
+                    # Save state after each modification to preserve progress
+                    self._save_sync_state(sync_state)
                     count += 1
 
                 except Exception as e:
@@ -563,6 +569,8 @@ class KarankiBidirSync:
                 self.state_manager.update_mapping_status(
                     sync_state, highlight_id, "missing_from_karakeep"
                 )
+                # Save state after each modification to preserve progress
+                self._save_sync_state(sync_state)
                 count += 1
         return count
 
