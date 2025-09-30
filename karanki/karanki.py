@@ -8,6 +8,7 @@ and Anki flashcards, organizing them by color-coded retention levels.
 Created with assistance from aider.chat (https://github.com/Aider-AI/aider/)
 """
 
+import os
 import click
 from loguru import logger
 from pathlib import Path
@@ -50,8 +51,9 @@ VERSION = "0.1.0"
 )
 @click.option(
     "--karakeep-base-url",
-    required=True,
-    help="Base URL for Karakeep instance (e.g., https://karakeep.example.com)",
+    required=False,
+    default=None,
+    help="Base URL for Karakeep instance (e.g., https://karakeep.example.com). Defaults to KARAKEEP_PYTHON_API_ENDPOINT environment variable.",
 )
 @click.option(
     "--sync-tags",
@@ -108,6 +110,21 @@ def main(
     - Blue highlights → Blue deck (85% retention)
     - Green highlights → Green deck (80% retention)
     """
+    # Get Karakeep base URL from environment variable if not provided via CLI
+    if karakeep_base_url is None:
+        karakeep_base_url = os.environ.get("KARAKEEP_PYTHON_API_ENDPOINT")
+        if karakeep_base_url is None:
+            error_msg = (
+                "Karakeep base URL not specified. Please either:\n"
+                "  1. Set the KARAKEEP_PYTHON_API_ENDPOINT environment variable, or\n"
+                "  2. Pass --karakeep-base-url option on the command line"
+            )
+            logger.error(error_msg)
+            raise click.ClickException(error_msg)
+        logger.debug(
+            f"Using Karakeep base URL from KARAKEEP_PYTHON_API_ENDPOINT: {karakeep_base_url}"
+        )
+
     # Set up logging
     logger.remove()  # Remove default handler
 
