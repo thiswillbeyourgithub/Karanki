@@ -233,9 +233,6 @@ class AnkiManager:
     {{OriginalHighlight}}
 </div>
 {{/OriginalHighlight}}
-<div class="source">
-    <strong>Source:</strong> {{Source}}
-</div>
 {{#Metadata}}
 <div class="metadata" style="display: none;">
     {{Metadata}}
@@ -254,7 +251,6 @@ class AnkiManager:
             "inOrderFields": [
                 "Text",
                 "Header",
-                "Source",
                 "OriginalHighlight",
                 "Metadata",
             ],
@@ -1342,7 +1338,6 @@ class AnkiManager:
                 )
             bookmark_link = f'<a href="{bookmark_url}">{bookmark_title}</a>'
             original_url = bookmark_data.get("content", {}).get("url", None) or "No URL"
-            original_link = f'<a href="{original_url}">{original_url}</a>'
 
             # Prepare tags (for future tag sync)
             tags_to_add = []
@@ -1371,6 +1366,7 @@ class AnkiManager:
                 "anki_tag_prefix": (
                     self.config.anki_tag_prefix if self.config.sync_tags else None
                 ),
+                "original_url": original_url,
             }
             metadata_toml = rtoml.dumps(metadata).strip().replace("\n", "<br>")
 
@@ -1384,7 +1380,6 @@ class AnkiManager:
                 "fields": {
                     "Text": cloze_text,
                     "Header": bookmark_link,
-                    "Source": original_url,
                     "OriginalHighlight": highlight_text.replace("\n", "<br>"),
                     "Metadata": metadata_toml,
                 },
