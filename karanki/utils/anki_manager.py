@@ -218,8 +218,8 @@ class AnkiManager:
         """Get the standard Karakeep notetype templates."""
         return {
             "Cloze": {
-                "Front": '{{#Header}}<div class="header"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}',
-                "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}
+                "Front": '{{#Header}}<div class="header"><h3>{{Header}}</h3></div><br>{{/Header}}{{cloze:Text}}',
+                "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div><br>{{/Header}}{{cloze:Text}}
 {{#OriginalHighlight}}
 <div class="original-highlight">
     <strong>Original Highlight:</strong><br>
@@ -809,6 +809,15 @@ class AnkiManager:
             logger.debug(
                 f"Created note {note_id} for highlight {highlight_data.get('id', 'unknown')}"
             )
+
+            if "ChatGPT kicked off the generative AI boom" in full_text:
+                breakpoint()
+            elif "Easily Rollout" in full_text:
+                breakpoint()
+            elif "Enhancing AI training and inference" in full_text:
+                breakpoint()
+            elif " 114 joules per response" in full_text:
+                breakpoint()
 
             return str(note_id)
 
