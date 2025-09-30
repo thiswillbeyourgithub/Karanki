@@ -1321,6 +1321,7 @@ class AnkiManager:
 
             # Extract data
             highlight_color = highlight_data.get("color", "yellow")
+            highlight_text = highlight_data.get("text", "")
             bookmark_id = highlight_data.get("bookmarkId", "")
 
             # Generate Text field using extracted method
