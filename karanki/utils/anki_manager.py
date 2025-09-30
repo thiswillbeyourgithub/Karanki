@@ -641,6 +641,20 @@ class AnkiManager:
         actual_highlight = context[adjusted_start:adjusted_end]
         after_highlight = context[adjusted_end:]
 
+        # Strip leading and trailing whitespace from the cloze content
+        # and move it to before/after sections to avoid awkward formatting
+        leading_stripped = actual_highlight.lstrip()
+        leading_whitespace = actual_highlight[
+            : len(actual_highlight) - len(leading_stripped)
+        ]
+        before_highlight += leading_whitespace
+
+        actual_highlight_clean = leading_stripped.rstrip()
+        trailing_whitespace = leading_stripped[len(actual_highlight_clean) :]
+        after_highlight = trailing_whitespace + after_highlight
+
+        actual_highlight = actual_highlight_clean
+
         # remove cloze markers that could be there by chance
         before_highlight = (
             before_highlight.replace("{{", "{ { ")
