@@ -364,27 +364,27 @@ class AnkiManager:
 
             # Clean up the extracted text
             # Split by newlines and clean each line
-            lines = text.split('\n')
+            lines = text.split("\n")
             cleaned_lines = []
-            
+
             for line in lines:
                 # Strip whitespace from each line
                 cleaned_line = line.strip()
                 # Keep all lines (including empty) to preserve paragraph structure
                 cleaned_lines.append(cleaned_line)
-            
+
             # Join lines back together
-            text = '\n'.join(cleaned_lines)
-            
+            text = "\n".join(cleaned_lines)
+
             # Remove excessive consecutive newlines (more than 2)
             # This preserves paragraph breaks (double newlines) but removes excessive spacing
-            text = re.sub(r'\n{3,}', '\n\n', text)
-            
+            text = re.sub(r"\n{3,}", "\n\n", text)
+
             # Normalize multiple spaces to single space
-            text = re.sub(r' {2,}', ' ', text)
-            
+            text = re.sub(r" {2,}", " ", text)
+
             # Remove newlines that have only whitespace between them
-            text = re.sub(r'\n\s+\n', '\n\n', text)
+            text = re.sub(r"\n\s+\n", "\n\n", text)
 
             # Apply text size limit
             if len(text) > MAX_TEXT_SIZE:
@@ -703,6 +703,15 @@ class AnkiManager:
                 cloze_text = self._create_context_with_cloze(
                     full_text, highlight_text, highlight_pos
                 )
+
+            # Debug breakpoint: check for "glass harmonica" in the text
+            if "glass harmonica" in cloze_text.lower():
+                logger.warning(
+                    "DEBUG: Found 'glass harmonica' in cloze_text - triggering breakpoint"
+                )
+                import pdb
+
+                pdb.set_trace()
 
             # Create source link
             base_url = self.config.karakeep_base_url.replace("/api/v1", "")
