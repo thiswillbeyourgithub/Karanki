@@ -693,7 +693,27 @@ class AnkiManager:
             return str(note_id)
 
         except Exception as e:
-            error_msg = f"Failed to create note for highlight: {e}"
+            # Enhance error message with identifying information for debugging
+            highlight_id = highlight_data.get("id", "unknown")
+            bookmark_id = highlight_data.get("bookmarkId", "unknown")
+            highlight_text = highlight_data.get("text", "")
+            # Truncate highlight text for readability
+            highlight_text_preview = (
+                highlight_text[:100] + "..."
+                if len(highlight_text) > 100
+                else highlight_text
+            )
+            bookmark_title = bookmark_data.get("title", "") or bookmark_data.get(
+                "content", {}
+            ).get("title", "Untitled")
+
+            error_msg = (
+                f"Failed to create note for highlight: {e}\n"
+                f"  Highlight ID: {highlight_id}\n"
+                f"  Bookmark ID: {bookmark_id}\n"
+                f"  Bookmark title: {bookmark_title}\n"
+                f"  Highlight text preview: {highlight_text_preview}"
+            )
             logger.error(error_msg)
             raise ContentProcessingError(error_msg) from e
 
