@@ -795,6 +795,9 @@ class AnkiManager:
                 f"Created note {note_id} for highlight {highlight_data.get('id', 'unknown')}"
             )
 
+            # Breakpoint for debugging Text field parsing issues with newlines
+            breakpoint()
+
             return str(note_id)
 
         except Exception as e:
