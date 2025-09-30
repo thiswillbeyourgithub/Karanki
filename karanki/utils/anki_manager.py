@@ -804,47 +804,51 @@ class AnkiManager:
         # If direct search failed, try interpolation between anchor points
         # Find the closest anchor points before and after target_pos
         sorted_text_positions = sorted(text_to_html_map.keys())
-        
+
         before_pos = None
         after_pos = None
-        
+
         for pos in sorted_text_positions:
             if pos < target_pos:
                 before_pos = pos
             elif pos > target_pos:
                 after_pos = pos
                 break
-        
+
         # If we have anchor points on both sides, interpolate
         if before_pos is not None and after_pos is not None:
             before_html = text_to_html_map[before_pos]
             after_html = text_to_html_map[after_pos]
-            
+
             # Linear interpolation
             text_range = after_pos - before_pos
             html_range = after_html - before_html
             text_offset = target_pos - before_pos
-            
-            interpolated_html = before_html + int((text_offset / text_range) * html_range)
-            
+
+            interpolated_html = before_html + int(
+                (text_offset / text_range) * html_range
+            )
+
             logger.debug(
                 f"Interpolated HTML position {interpolated_html} for text position {target_pos} "
                 f"(between anchors at text {before_pos}->{after_pos}, html {before_html}->{after_html})"
             )
             return interpolated_html
-        
+
         # If we only have a before anchor, estimate based on average character ratio
         if before_pos is not None:
             before_html = text_to_html_map[before_pos]
             # Rough estimate: assume similar character density
             offset = target_pos - before_pos
-            estimated_html = before_html + int(offset * 1.2)  # Assume HTML is ~20% larger
+            estimated_html = before_html + int(
+                offset * 1.2
+            )  # Assume HTML is ~20% larger
             logger.debug(
                 f"Estimated HTML position {estimated_html} from before anchor "
                 f"(text {before_pos}->html {before_html}, offset {offset})"
             )
             return estimated_html
-        
+
         # If we only have an after anchor, estimate backwards
         if after_pos is not None:
             after_html = text_to_html_map[after_pos]
