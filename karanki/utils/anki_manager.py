@@ -354,37 +354,60 @@ class AnkiManager:
             for script in soup(["script", "style"]):
                 script.decompose()
 
-            # Replace <br> tags with explicit newline markers
-            for br in soup.find_all("br"):
-                br.replace_with("\n")
+            # Convert block-level elements to newlines before extracting text
+            # This ensures paragraph breaks and line breaks are preserved
+            block_elements = soup.find_all(
+                [
+                    "p",
+                    "div",
+                    "br",
+                    "h1",
+                    "h2",
+                    "h3",
+                    "h4",
+                    "h5",
+                    "h6",
+                    "li",
+                    "blockquote",
+                    "pre",
+                ]
+            )
+            for element in block_elements:
+                if element.name == "br":
+                    element.replace_with("\n")
+                else:
+                    # Add newlines before and after block elements
+                    if element.string:
+                        element.string.replace_with("\n" + element.get_text() + "\n")
+                    else:
+                        # For elements with nested content, insert newlines around them
+                        if element.previous_sibling:
+                            element.insert_before("\n")
+                        if element.next_sibling:
+                            element.insert_after("\n")
 
-            # Get text using space separator to avoid inline elements running together
-            # BeautifulSoup naturally handles block-level elements with newlines
-            text = soup.get_text(separator=" ")
+            # Get text with newline separator to preserve structure
+            text = soup.get_text(separator="\n")
 
-            # Clean up the extracted text
-            # Split by newlines and clean each line
-            lines = text.split('\n')
+            # Split into lines and clean up while preserving structure
+            lines = text.splitlines()
             cleaned_lines = []
-            
+
             for line in lines:
-                # Strip whitespace from each line
+                # Only strip leading/trailing whitespace, keep empty lines for formatting
                 cleaned_line = line.strip()
-                # Keep all lines (including empty) to preserve paragraph structure
                 cleaned_lines.append(cleaned_line)
-            
-            # Join lines back together
-            text = '\n'.join(cleaned_lines)
-            
-            # Remove excessive consecutive newlines (more than 2)
-            # This preserves paragraph breaks (double newlines) but removes excessive spacing
-            text = re.sub(r'\n{3,}', '\n\n', text)
-            
-            # Normalize multiple spaces to single space
-            text = re.sub(r' {2,}', ' ', text)
-            
-            # Remove newlines that have only whitespace between them
-            text = re.sub(r'\n\s+\n', '\n\n', text)
+
+            # Join with newlines to preserve original structure
+            text = "\n".join(cleaned_lines)
+
+            # Only remove truly excessive newlines (4 or more consecutive)
+            # But preserve paragraph breaks (double newlines)
+            text = re.sub(r"\n{4,}", "\n\n\n", text)
+
+            # Ensure we don't accidentally remove all paragraph breaks
+            # Convert any remaining multiple spaces to single spaces while preserving newlines
+            text = re.sub(r"[ \t]+", " ", text)
 
             # Apply text size limit
             if len(text) > MAX_TEXT_SIZE:
