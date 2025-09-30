@@ -34,7 +34,26 @@ def adjust_index_to_sentence(
     index: int,
     sentences_indexes: List[List[int]],
     only: Optional[Literal["start", "end"]] = None,
-) -> int:
+) -> Optional[int]:
+    """
+    Adjust an index to align with sentence boundaries.
+
+    Parameters
+    ----------
+    index : int
+        The index to adjust
+    sentences_indexes : List[List[int]]
+        List of [start, end] sentence boundaries
+    only : Optional[Literal["start", "end"]]
+        If specified, only adjust to sentence start or end
+
+    Returns
+    -------
+    Optional[int]
+        Adjusted index, or None if no suitable sentence found
+    """
+    best_match = None
+
     for isind, sind in enumerate(sentences_indexes):
         start, end = sind
         if not (start <= index <= end):
@@ -50,7 +69,7 @@ def adjust_index_to_sentence(
             if isind != 0:
                 candidates.extend(sentences_indexes[isind - 1])
             candidates.extend([start, end])
-            if isind != len(sentences_indexes):
+            if isind < len(sentences_indexes) - 1:
                 candidates.extend(sentences_indexes[isind + 1])
             if not (min(candidates) <= index <= max(candidates)):
                 continue
@@ -509,70 +528,118 @@ class AnkiManager:
         # Create chunks
         chunks = chunker.chunk(full_text)
 
-        # find all sentences index
-        sentences_indexes: List[List[int]] = []
-        for chunk in chunks:
-            for sentence in chunk.sentences:
-                sentences_indexes.append([sentence.start_index, sentence.end_index])
-
-        # Find which chunk contains the highlight
+        # Find which chunk contains the highlight start
         target_chunk = None
+        target_chunk_idx = None
         for ichunk, chunk in enumerate(chunks):
             if chunk.start_index <= start_pos < chunk.end_index:
                 target_chunk = chunk
+                target_chunk_idx = ichunk
                 break
 
-        assert target_chunk, f"Couldn't find chunk for highlight '{highlight_text}'"
+        if target_chunk is None:
+            logger.warning(f"Couldn't find chunk for highlight, using simple cloze")
+            return f"{{{{c1::{highlight_text}}}}}"
 
-        # Adjust positions relative to chunk
-        if chunk.end_index <= end_pos and ichunk != len(chunks):
-            next_chunk = chunks[ichunk + 1]
+        # Determine if we need to include the next chunk
+        # If highlight extends beyond current chunk and there's a next chunk available
+        if end_pos > target_chunk.end_index and target_chunk_idx < len(chunks) - 1:
+            next_chunk = chunks[target_chunk_idx + 1]
             context = target_chunk.text + " " + next_chunk.text
+            context_start_index = target_chunk.start_index
         else:
             context = target_chunk.text
-        highlight_start_in_context = start_pos - target_chunk.start_index
-        highlight_end_in_context = end_pos - target_chunk.start_index
-        assert (
-            highlight_start_in_context != highlight_end_in_context
-        ), f"Unadjusted borders are the same: {adjusted_highlight_start_in_context}"
+            context_start_index = target_chunk.start_index
 
-        # adjust indexes to sentences borders
-        highlight_start_in_context = adjust_index_to_sentence(
+        # Calculate positions relative to context
+        highlight_start_in_context = start_pos - context_start_index
+        highlight_end_in_context = end_pos - context_start_index
+
+        # Build sentence indices relative to context (not full_text)
+        sentences_indexes: List[List[int]] = []
+        for chunk in chunks:
+            for sentence in chunk.sentences:
+                # Convert sentence indices to be relative to context
+                sentence_start = sentence.start_index - context_start_index
+                sentence_end = sentence.end_index - context_start_index
+                # Only include sentences that are within our context bounds
+                if 0 <= sentence_start < len(context) and 0 < sentence_end <= len(
+                    context
+                ):
+                    sentences_indexes.append([sentence_start, sentence_end])
+
+        # Validate positions before adjustment
+        if highlight_end_in_context > len(context):
+            logger.warning(
+                f"Highlight end ({highlight_end_in_context}) exceeds context length ({len(context)}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        if highlight_start_in_context >= len(context) or highlight_start_in_context < 0:
+            logger.warning(
+                f"Highlight start ({highlight_start_in_context}) out of context bounds ({len(context)}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        if highlight_start_in_context == highlight_end_in_context:
+            logger.warning(
+                f"Highlight start and end are the same ({highlight_start_in_context}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        # Ensure we have valid sentence indices
+        if not sentences_indexes:
+            logger.warning("No sentence indices found, using simple cloze")
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        # Adjust indexes to sentence borders
+        adjusted_start = adjust_index_to_sentence(
             index=highlight_start_in_context,
             sentences_indexes=sentences_indexes,
             only="start",
         )
-        highlight_end_in_context = adjust_index_to_sentence(
+        adjusted_end = adjust_index_to_sentence(
             index=highlight_end_in_context,
             sentences_indexes=sentences_indexes,
             only="end",
         )
 
-        # sanity check
-        assert (
-            highlight_start_in_context != highlight_end_in_context
-        ), f"Adjusted borders are the same: {highlight_start_in_context}"
-        assert (
-            highlight_end_in_context > 0
-        ), f"highlight_end_in_context is below 0: {highlight_end_in_context}"
-        assert (
-            highlight_start_in_context > 0
-        ), f"highlight_start_in_context is below 0: {highlight_start_in_context}"
-        assert highlight_end_in_context <= len(
-            context
-        ), f"Wrong size of highlight end: {highlight_end_in_context} and {len(context)}"
-        assert highlight_start_in_context <= len(
-            context
-        ), f"Wrong size of highlight start: {highlight_start_in_context} and {len(context)}"
-        assert (
-            highlight_end_in_context > highlight_start_in_context
-        ), f"Wrong order of highlight borders: {highlight_start_in_context} and {highlight_end_in_context}"
+        # Validate adjusted positions
+        if adjusted_start is None or adjusted_end is None:
+            logger.warning(
+                "Failed to adjust to sentence boundaries, using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        if adjusted_start == adjusted_end:
+            logger.warning(
+                f"Adjusted borders are the same ({adjusted_start}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        if adjusted_end <= 0 or adjusted_start < 0:
+            logger.warning(
+                f"Invalid adjusted positions (start: {adjusted_start}, end: {adjusted_end}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        if adjusted_end > len(context) or adjusted_start >= len(context):
+            logger.warning(
+                f"Adjusted positions exceed context (start: {adjusted_start}, end: {adjusted_end}, len: {len(context)}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
+
+        if adjusted_end <= adjusted_start:
+            logger.warning(
+                f"Wrong order of adjusted borders (start: {adjusted_start}, end: {adjusted_end}), using simple cloze"
+            )
+            return f"{{{{c1::{highlight_text}}}}}"
 
         # Create cloze deletion
-        before_highlight = context[:highlight_start_in_context]
+        before_highlight = context[:adjusted_start]
         # we use actual_highlight instead of highlight_text because otherwise the newlines are removed
-        actual_highlight = context[highlight_start_in_context:highlight_end_in_context]
-        after_highlight = context[highlight_end_in_context:]
+        actual_highlight = context[adjusted_start:adjusted_end]
+        after_highlight = context[adjusted_end:]
 
         # remove cloze markers that could be there by chance
         before_highlight = (
@@ -593,7 +660,7 @@ class AnkiManager:
 
         # Create cloze with c1 (first cloze)
         cloze_text = (
-            f"{before_highlight} {{{{c1::{actual_highlight}}}}} {after_highlight}"
+            f"{before_highlight}{{{{c1::{actual_highlight}}}}} {after_highlight}"
         )
         return cloze_text.strip().replace("\n", "<br>")
 
