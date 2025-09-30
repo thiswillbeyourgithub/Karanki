@@ -295,6 +295,92 @@ class SyncStateManager:
         return None
 
     @optional_typecheck
+    def add_failed_creation(
+        self,
+        state_data: Dict[str, Any],
+        highlight_id: str,
+        bookmark_id: str,
+        error_message: str,
+    ) -> None:
+        """
+        Record a failed note creation attempt.
+
+        Parameters
+        ----------
+        state_data : Dict[str, Any]
+            The sync state data to modify
+        highlight_id : str
+            Karakeep highlight ID that failed
+        bookmark_id : str
+            Karakeep bookmark ID for the highlight
+        error_message : str
+            The error message from the failure
+        """
+        # Ensure failed_creations list exists (for backwards compatibility)
+        if "failed_creations" not in state_data:
+            state_data["failed_creations"] = []
+
+        # Check if error already exists for this highlight
+        for error_entry in state_data["failed_creations"]:
+            if error_entry.get("highlight_id") == highlight_id:
+                # Update existing error entry
+                error_entry["error_message"] = error_message
+                error_entry["last_failed_at"] = datetime.now().isoformat()
+                error_entry["bookmark_id"] = bookmark_id
+                logger.debug(
+                    f"Updated existing error entry for highlight {highlight_id}"
+                )
+                return
+
+        # Create new error entry
+        error_entry = {
+            "highlight_id": highlight_id,
+            "bookmark_id": bookmark_id,
+            "error_message": error_message,
+            "first_failed_at": datetime.now().isoformat(),
+            "last_failed_at": datetime.now().isoformat(),
+        }
+
+        state_data["failed_creations"].append(error_entry)
+        logger.debug(
+            f"Recorded failed creation for highlight {highlight_id}: {error_message}"
+        )
+
+    @optional_typecheck
+    def clear_failed_creation(
+        self, state_data: Dict[str, Any], highlight_id: str
+    ) -> bool:
+        """
+        Clear a failed creation record when we successfully create the note.
+
+        Parameters
+        ----------
+        state_data : Dict[str, Any]
+            The sync state data to modify
+        highlight_id : str
+            Karakeep highlight ID to clear
+
+        Returns
+        -------
+        bool
+            True if an error was cleared, False if no error existed
+        """
+        # Ensure failed_creations list exists
+        if "failed_creations" not in state_data:
+            return False
+
+        # Find and remove error entry
+        for i, error_entry in enumerate(state_data["failed_creations"]):
+            if error_entry.get("highlight_id") == highlight_id:
+                state_data["failed_creations"].pop(i)
+                logger.debug(
+                    f"Cleared failed creation error for highlight {highlight_id}"
+                )
+                return True
+
+        return False
+
+    @optional_typecheck
     def _create_empty_state(self) -> Dict[str, Any]:
         """Create an empty state structure."""
         return {
@@ -302,6 +388,7 @@ class SyncStateManager:
             "created_at": datetime.now().isoformat(),
             "last_updated": datetime.now().isoformat(),
             "mappings": [],
+            "failed_creations": [],
             "config": {
                 "anki_tag_prefix": self.config.anki_tag_prefix,
                 "karakeep_base_url": self.config.karakeep_base_url,

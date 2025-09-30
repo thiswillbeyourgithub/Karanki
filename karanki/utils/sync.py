@@ -560,12 +560,26 @@ class KarankiBidirSync:
                 self.state_manager.add_mapping(
                     sync_state, highlight_id, note_id, bookmark_id, color, deck_name
                 )
+
+                # Clear any previous failed creation error for this highlight
+                self.state_manager.clear_failed_creation(sync_state, highlight_id)
+
                 # Save state after each modification to preserve progress
                 self._save_sync_state(sync_state)
                 count += 1
 
             except Exception as e:
                 logger.error(f"Failed to create note for highlight {highlight_id}: {e}")
+
+                # Record the failed creation in sync state
+                bookmark_id = highlight.get("bookmarkId", "unknown")
+                error_message = str(e)
+                self.state_manager.add_failed_creation(
+                    sync_state, highlight_id, bookmark_id, error_message
+                )
+                # Save state to persist the error record
+                self._save_sync_state(sync_state)
+
                 if self.debug:
                     raise
                 # Continue processing other highlights
