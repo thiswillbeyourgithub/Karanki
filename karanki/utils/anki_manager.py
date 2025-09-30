@@ -491,6 +491,119 @@ class AnkiManager:
             ) from e
 
     @optional_typecheck
+    def _find_paragraph_boundaries(self, text: str) -> List[int]:
+        """
+        Find paragraph boundaries in text.
+
+        Paragraphs are identified by double newlines or similar breaks.
+
+        Parameters
+        ----------
+        text : str
+            Text to analyze
+
+        Returns
+        -------
+        List[int]
+            List of positions where paragraphs start (including position 0)
+        """
+        boundaries = [0]  # Text always starts at position 0
+
+        # Look for paragraph breaks (double newlines, possibly with whitespace between)
+        # This regex matches 2+ newlines with optional spaces/tabs between them
+        pattern = r"\n[ \t]*\n+"
+
+        for match in re.finditer(pattern, text):
+            # Paragraph starts after the break
+            boundaries.append(match.end())
+
+        # Add end of text as final boundary
+        if boundaries[-1] != len(text):
+            boundaries.append(len(text))
+
+        logger.debug(
+            f"Found {len(boundaries) - 1} paragraphs in text of length {len(text)}"
+        )
+        return boundaries
+
+    @optional_typecheck
+    def _extract_paragraph_context(
+        self,
+        text: str,
+        highlight_pos: tuple,
+        num_paragraphs_before: int = 2,
+        num_paragraphs_after: int = 2,
+    ) -> tuple:
+        """
+        Extract limited context around highlight (N paragraphs before/after).
+
+        This prevents excessively long Anki notes when highlights are in long documents.
+
+        Parameters
+        ----------
+        text : str
+            Full text content
+        highlight_pos : tuple
+            (start_pos, end_pos) of highlight in full text
+        num_paragraphs_before : int
+            Number of paragraphs to include before highlight (default: 2)
+        num_paragraphs_after : int
+            Number of paragraphs to include after highlight (default: 2)
+
+        Returns
+        -------
+        tuple
+            (context_text, context_start_index, adjusted_highlight_start, adjusted_highlight_end)
+            where context_text is the extracted context, context_start_index is its position
+            in the original text, and adjusted positions are relative to the context
+        """
+        start_pos, end_pos = highlight_pos
+
+        # Find paragraph boundaries
+        para_boundaries = self._find_paragraph_boundaries(text)
+
+        # Find which paragraph contains the highlight start
+        highlight_para_idx = None
+        for i in range(len(para_boundaries) - 1):
+            if para_boundaries[i] <= start_pos < para_boundaries[i + 1]:
+                highlight_para_idx = i
+                break
+
+        if highlight_para_idx is None:
+            logger.warning("Could not find paragraph for highlight, using full text")
+            return (text, 0, start_pos, end_pos)
+
+        # Calculate context boundaries (N paragraphs before/after)
+        context_start_para = max(0, highlight_para_idx - num_paragraphs_before)
+        context_end_para = min(
+            len(para_boundaries) - 1, highlight_para_idx + num_paragraphs_after + 1
+        )
+
+        context_start_index = para_boundaries[context_start_para]
+        context_end_index = para_boundaries[context_end_para]
+
+        # Extract context
+        context_text = text[context_start_index:context_end_index]
+
+        # Adjust highlight positions to be relative to context
+        adjusted_highlight_start = start_pos - context_start_index
+        adjusted_highlight_end = end_pos - context_start_index
+
+        logger.debug(
+            f"Extracted paragraph context: {len(context_text)} chars "
+            f"(from full text of {len(text)} chars), "
+            f"using paragraphs {context_start_para} to {context_end_para} "
+            f"out of {len(para_boundaries) - 1} total"
+        )
+
+        return (
+            context_text,
+            context_start_index,
+            adjusted_highlight_start,
+            adjusted_highlight_end,
+        )
+
+    @optional_typecheck
     def _find_highlight_in_text(
         self, highlight_text: str, full_text: str
     ) -> Optional[tuple]:
@@ -702,6 +815,9 @@ class AnkiManager:
         Create context around highlight with cloze deletion using semantic chunking,
         then insert cloze markers directly in the HTML to preserve structure.
 
+        Limits context to approximately 2 paragraphs before/after the highlight
+        to prevent excessively long notes.
+
         This method uses the same semantic chunking logic as _create_context_with_cloze
         but operates on HTML to preserve formatting, links, and other structure.
 
@@ -723,6 +839,20 @@ class AnkiManager:
         str
             HTML with cloze deletion markers inserted
         """
+        # FIRST: Extract limited paragraph context to prevent overly long notes
+        (
+            limited_text,
+            context_offset,
+            adjusted_start,
+            adjusted_end,
+        ) = self._extract_paragraph_context(
+            full_text, highlight_pos, num_paragraphs_before=2, num_paragraphs_after=2
+        )
+
+        # Update highlight position to be relative to limited context
+        highlight_pos = (adjusted_start, adjusted_end)
+
+        # NOW proceed with semantic chunking on the LIMITED context
         # Initialize semantic chunker with multilingual model as per spec
         chunker = SemanticChunker(
             embedding_model="minishlab/potion-multilingual-128M",
@@ -733,23 +863,23 @@ class AnkiManager:
 
         # Strip the text, adjusting the highlight position if needed
         highlight_pos = list(highlight_pos)
-        diff_len = len(full_text) - len(full_text.rstrip())
-        if diff_len > 0 and highlight_pos[-1] == len(full_text):
-            full_text = full_text.rstrip()
+        diff_len = len(limited_text) - len(limited_text.rstrip())
+        if diff_len > 0 and highlight_pos[-1] == len(limited_text):
+            limited_text = limited_text.rstrip()
             highlight_pos[-1] -= diff_len
 
         # Start portion: adjusting both positions
-        full_text_stripped = full_text.strip()
-        diff_len = len(full_text) - len(full_text_stripped)
+        limited_text_stripped = limited_text.strip()
+        diff_len = len(limited_text) - len(limited_text_stripped)
         if diff_len > 0:
-            full_text = full_text.rstrip()
+            limited_text = limited_text.rstrip()
             highlight_pos[0] -= diff_len
             highlight_pos[1] -= diff_len
 
         start_pos, end_pos = highlight_pos
 
         # Create chunks on the plain text
-        chunks = chunker.chunk(full_text)
+        chunks = chunker.chunk(limited_text)
 
         # Find which chunk contains the highlight start
         target_chunk = None
@@ -842,25 +972,30 @@ class AnkiManager:
                 f"Wrong order of adjusted borders (start: {adjusted_start}, end: {adjusted_end})"
             )
 
-        # Convert context-relative positions back to full-text positions
+        # Convert context-relative positions back to limited-text positions
         adjusted_start_in_text = context_start_index + adjusted_start
         adjusted_end_in_text = context_start_index + adjusted_end
 
+        # IMPORTANT: Adjust for the context offset when mapping to HTML
+        # The text positions need to be relative to the FULL original text for HTML mapping
+        adjusted_start_in_full_text = context_offset + adjusted_start_in_text
+        adjusted_end_in_full_text = context_offset + adjusted_end_in_text
+
         logger.debug(
-            f"Text positions after semantic chunking: {adjusted_start_in_text}-{adjusted_end_in_text}"
+            f"Text positions after semantic chunking: {adjusted_start_in_full_text}-{adjusted_end_in_full_text}"
         )
 
         # Map text positions to HTML positions
         html_start = self._find_nearest_mapped_position(
-            adjusted_start_in_text, text_to_html_map
+            adjusted_start_in_full_text, text_to_html_map
         )
         html_end = self._find_nearest_mapped_position(
-            adjusted_end_in_text, text_to_html_map
+            adjusted_end_in_full_text, text_to_html_map
         )
 
         if html_start is None or html_end is None:
             raise ValueError(
-                f"Could not map text positions to HTML (text: {adjusted_start_in_text}-{adjusted_end_in_text})"
+                f"Could not map text positions to HTML (text: {adjusted_start_in_full_text}-{adjusted_end_in_full_text})"
             )
 
         logger.debug(f"Mapped to HTML positions: {html_start}-{html_end}")
@@ -879,6 +1014,7 @@ class AnkiManager:
         """
         Create context around highlight with cloze deletion using semantic chunking.
 
+        Limits context to approximately 2 paragraphs before/after the highlight.
         This is the fallback plain-text version used when HTML-aware processing fails.
 
         Parameters
@@ -895,6 +1031,20 @@ class AnkiManager:
         str
             Text with cloze deletion around highlight
         """
+        # FIRST: Extract limited paragraph context
+        (
+            limited_text,
+            context_offset,
+            adjusted_start,
+            adjusted_end,
+        ) = self._extract_paragraph_context(
+            full_text, highlight_pos, num_paragraphs_before=2, num_paragraphs_after=2
+        )
+
+        # Update highlight position to be relative to limited context
+        highlight_pos = (adjusted_start, adjusted_end)
+
+        # NOW proceed with semantic chunking on the LIMITED context
         # Initialize semantic chunker with multilingual model as per spec
         chunker = SemanticChunker(
             embedding_model="minishlab/potion-multilingual-128M",
@@ -906,21 +1056,21 @@ class AnkiManager:
         # strip the text, adjusting the highlight position if needed
         # end portion, adjusting the last index if the highlight is until the end
         highlight_pos = list(highlight_pos)
-        diff_len = len(full_text) - len(full_text.rstrip())
-        if diff_len > 0 and highlight_pos[-1] == len(full_text):
-            full_text = full_text.rstrip()
+        diff_len = len(limited_text) - len(limited_text.rstrip())
+        if diff_len > 0 and highlight_pos[-1] == len(limited_text):
+            limited_text = limited_text.rstrip()
             highlight_pos[-1] -= diff_len
         # start portion: adjusting both positions
-        full_text_stripped = full_text.strip()
-        diff_len = len(full_text) - len(full_text_stripped)
+        limited_text_stripped = limited_text.strip()
+        diff_len = len(limited_text) - len(limited_text_stripped)
         if diff_len > 0:
-            full_text = full_text.rstrip()
+            limited_text = limited_text.rstrip()
             highlight_pos[0] -= diff_len
             highlight_pos[1] -= diff_len
         start_pos, end_pos = highlight_pos
 
         # Create chunks
-        chunks = chunker.chunk(full_text)
+        chunks = chunker.chunk(limited_text)
 
         # Find which chunk contains the highlight start
         target_chunk = None
@@ -949,7 +1099,7 @@ class AnkiManager:
         highlight_start_in_context = start_pos - context_start_index
         highlight_end_in_context = end_pos - context_start_index
 
-        # Build sentence indices relative to context (not full_text)
+        # Build sentence indices relative to context (not limited_text)
         sentences_indexes: List[List[int]] = []
         for chunk in chunks:
             for sentence in chunk.sentences:
