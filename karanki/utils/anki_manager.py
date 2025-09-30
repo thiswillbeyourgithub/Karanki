@@ -1230,6 +1230,74 @@ class AnkiManager:
         return cloze_text.strip().replace("\n", "<br>")
 
     @optional_typecheck
+    def _generate_text_field(
+        self, highlight_data: Dict[str, Any], bookmark_data: Dict[str, Any]
+    ) -> tuple:
+        """
+        Generate the Text field content for an Anki note.
+
+        This extracts the text field generation logic to allow reuse
+        for both creating new notes and updating existing ones.
+
+        Parameters
+        ----------
+        highlight_data : Dict[str, Any]
+            Highlight information from Karakeep
+        bookmark_data : Dict[str, Any]
+            Bookmark information from Karakeep
+
+        Returns
+        -------
+        tuple
+            (cloze_text, used_fallback) where used_fallback indicates
+            if plain text parsing was used instead of HTML-aware parsing
+        """
+        # Extract data
+        highlight_text = highlight_data.get("text", "")
+
+        # Get HTML content
+        html_content = bookmark_data.get("content", {}).get("htmlContent", "")
+        if not html_content:
+            raise ContentProcessingError("No HTML content found in bookmark")
+
+        # Extract text with position mapping for HTML-aware processing
+        full_text, text_to_html_map = self._extract_text_from_html(html_content)
+
+        # Find highlight position in plain text
+        highlight_pos = self._find_highlight_in_text(highlight_text, full_text)
+
+        # Track whether we used fallback parsing
+        used_fallback = False
+
+        if not highlight_pos:
+            # Fallback: just create simple cloze
+            cloze_text = f"{{{{c1::{highlight_text}}}}}"
+            logger.debug("Using simple cloze (highlight not found in text)")
+            used_fallback = True
+        else:
+            # Try HTML-aware approach first, fall back to plain text on error
+            try:
+                cloze_text = self._create_context_with_cloze_html(
+                    html_content,
+                    full_text,
+                    highlight_text,
+                    highlight_pos,
+                    text_to_html_map,
+                )
+                logger.debug("Successfully created HTML-aware cloze")
+            except Exception as e:
+                logger.warning(
+                    f"HTML-aware cloze failed, falling back to plain text: {e}"
+                )
+                cloze_text = self._create_context_with_cloze(
+                    full_text, highlight_text, highlight_pos
+                )
+                logger.debug("Using plain text fallback cloze")
+                used_fallback = True
+
+        return (cloze_text, used_fallback)
+
+    @optional_typecheck
     def create_note(
         self, highlight_data: Dict[str, Any], bookmark_data: Dict[str, Any]
     ) -> str:
@@ -1256,49 +1324,13 @@ class AnkiManager:
                 bookmark_data = asdict(bookmark_data)
 
             # Extract data
-            highlight_text = highlight_data.get("text", "")
             highlight_color = highlight_data.get("color", "yellow")
             bookmark_id = highlight_data.get("bookmarkId", "")
 
-            # Get HTML content
-            html_content = bookmark_data.get("content", {}).get("htmlContent", "")
-            if not html_content:
-                raise ContentProcessingError("No HTML content found in bookmark")
-
-            # Extract text with position mapping for HTML-aware processing
-            full_text, text_to_html_map = self._extract_text_from_html(html_content)
-
-            # Find highlight position in plain text
-            highlight_pos = self._find_highlight_in_text(highlight_text, full_text)
-
-            # Track whether we used fallback parsing for tagging
-            used_fallback = False
-
-            if not highlight_pos:
-                # Fallback: just create simple cloze
-                cloze_text = f"{{{{c1::{highlight_text}}}}}"
-                logger.debug("Using simple cloze (highlight not found in text)")
-                used_fallback = True
-            else:
-                # Try HTML-aware approach first, fall back to plain text on error
-                try:
-                    cloze_text = self._create_context_with_cloze_html(
-                        html_content,
-                        full_text,
-                        highlight_text,
-                        highlight_pos,
-                        text_to_html_map,
-                    )
-                    logger.debug("Successfully created HTML-aware cloze")
-                except Exception as e:
-                    logger.warning(
-                        f"HTML-aware cloze failed, falling back to plain text: {e}"
-                    )
-                    cloze_text = self._create_context_with_cloze(
-                        full_text, highlight_text, highlight_pos
-                    )
-                    logger.debug("Using plain text fallback cloze")
-                    used_fallback = True
+            # Generate Text field using extracted method
+            cloze_text, used_fallback = self._generate_text_field(
+                highlight_data, bookmark_data
+            )
 
             # Create source link
             base_url = self.config.karakeep_base_url.replace("/api/v1", "")

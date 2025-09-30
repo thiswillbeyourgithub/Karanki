@@ -341,13 +341,20 @@ class KarankiBidirSync:
 
             # Step 7: Tag synchronization (if enabled)
             if self.config.sync_tags:
-                logger.info("Step 7/7: Synchronizing tags...")
+                logger.info("Step 7/8: Synchronizing tags...")
                 tag_count = self._sync_tags(
                     highlights_by_id, state_mappings, sync_state
                 )
                 sync_stats["tags_synced"] = tag_count
             else:
-                logger.info("Step 7/7: Skipping tag synchronization (disabled)")
+                logger.info("Step 7/8: Skipping tag synchronization (disabled)")
+
+            # Step 8: Update Text fields with current parser
+            logger.info("Step 8/8: Updating Text fields with current parser...")
+            updated_count = self._handle_text_field_updates(
+                highlights_by_id, state_mappings, sync_state
+            )
+            sync_stats["text_fields_updated"] = updated_count
 
             # Report final statistics
             logger.info("Sync processing completed successfully")
@@ -356,7 +363,8 @@ class KarankiBidirSync:
                 f"{sync_stats['notes_suspended']} suspended, "
                 f"{sync_stats['color_mismatches_fixed']} color fixes, "
                 f"{sync_stats['missing_from_both']} missing from both, "
-                f"{sync_stats['tags_synced']} tags synced"
+                f"{sync_stats['tags_synced']} tags synced, "
+                f"{sync_stats['text_fields_updated']} text fields updated"
             )
 
         except Exception as e:
@@ -751,6 +759,90 @@ class KarankiBidirSync:
                     raise
 
         logger.info(f"Tag synchronization completed: updated {count} notes")
+        return count
+
+    @optional_typecheck
+    def _handle_text_field_updates(
+        self,
+        highlights_by_id: Dict[str, Dict],
+        state_mappings: Dict[str, Dict],
+        sync_state: Dict[str, Any],
+    ) -> int:
+        """
+        Update Text fields of existing notes with current parser logic.
+
+        This allows parser improvements to be applied to previously created notes.
+
+        Parameters
+        ----------
+        highlights_by_id : Dict[str, Dict]
+            All highlights indexed by ID
+        state_mappings : Dict[str, Dict]
+            All state mappings indexed by highlight ID
+        sync_state : Dict[str, Any]
+            The sync state data
+
+        Returns
+        -------
+        int
+            Number of notes updated
+        """
+        # Collect highlights that need Text field updates
+        highlights_to_update = []
+        for highlight_id, mapping in state_mappings.items():
+            if mapping["status"] != "active":
+                continue
+
+            if highlight_id not in highlights_by_id:
+                continue
+
+            highlight = highlights_by_id[highlight_id]
+            bookmark_id = highlight.get("bookmarkId")
+            note_id = mapping["note_id"]
+
+            if bookmark_id:
+                highlights_to_update.append(
+                    (highlight_id, bookmark_id, note_id, highlight)
+                )
+
+        if not highlights_to_update:
+            logger.info("No notes to update Text fields for")
+            return 0
+
+        # Fetch all bookmark data in parallel
+        bookmark_ids = [bookmark_id for _, bookmark_id, _, _ in highlights_to_update]
+        logger.info(
+            f"Fetching {len(bookmark_ids)} bookmarks in parallel for Text field updates"
+        )
+        bookmark_data_map = self._fetch_bookmarks_parallel(bookmark_ids)
+
+        # Update Text fields
+        count = 0
+        for highlight_id, bookmark_id, note_id, highlight in highlights_to_update:
+            if bookmark_id not in bookmark_data_map:
+                logger.warning(
+                    f"Skipping Text field update for highlight {highlight_id}: "
+                    f"bookmark {bookmark_id} fetch failed"
+                )
+                continue
+
+            try:
+                bookmark_data = bookmark_data_map[bookmark_id]
+
+                # Update the Text field if it has changed
+                if self.anki_manager.update_note_text_field(
+                    note_id, highlight, bookmark_data
+                ):
+                    count += 1
+
+            except Exception as e:
+                logger.warning(
+                    f"Failed to update Text field for highlight {highlight_id}: {e}"
+                )
+                if self.debug:
+                    raise
+
+        logger.info(f"Text field updates completed: updated {count} notes")
         return count
 
     @optional_typecheck

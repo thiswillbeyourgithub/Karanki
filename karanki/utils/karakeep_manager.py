@@ -333,6 +333,119 @@ class KarakeepManager:
             raise KarakeepConnectionError(error_msg) from e
 
     @optional_typecheck
+    def get_note_text_field(self, note_id: str) -> Optional[str]:
+        """
+        Get the current Text field value from an Anki note.
+
+        Parameters
+        ----------
+        note_id : str
+            The ID of the note
+
+        Returns
+        -------
+        Optional[str]
+            The Text field content, or None if note not found
+        """
+        try:
+            note_id_int = int(note_id)
+            note_info = self.akc("notesInfo", notes=[note_id_int])
+            if not note_info:
+                return None
+
+            fields = note_info[0].get("fields", {})
+            text_field = fields.get("Text", {})
+            return text_field.get("value")
+        except Exception as e:
+            logger.error(f"Failed to get Text field for note {note_id}: {e}")
+            return None
+
+    @optional_typecheck
+    def update_note_text_field(
+        self,
+        note_id: str,
+        highlight_data: Dict[str, Any],
+        bookmark_data: Dict[str, Any],
+    ) -> bool:
+        """
+        Update the Text field of an existing note if it has changed.
+
+        This allows parser improvements to be applied to existing notes.
+
+        Parameters
+        ----------
+        note_id : str
+            The ID of the note to update
+        highlight_data : Dict[str, Any]
+            Highlight information from Karakeep
+        bookmark_data : Dict[str, Any]
+            Bookmark information from Karakeep
+
+        Returns
+        -------
+        bool
+            True if the field was updated, False if unchanged or update failed
+        """
+        try:
+            # Generate new Text field content
+            new_text, used_fallback = self._generate_text_field(
+                highlight_data, bookmark_data
+            )
+
+            # Get current Text field
+            current_text = self.get_note_text_field(note_id)
+
+            if current_text is None:
+                logger.warning(
+                    f"Could not retrieve current Text field for note {note_id}"
+                )
+                return False
+
+            # Compare (normalize whitespace for comparison)
+            import re
+
+            normalized_current = re.sub(r"\s+", " ", current_text.strip())
+            normalized_new = re.sub(r"\s+", " ", new_text.strip())
+
+            if normalized_current == normalized_new:
+                logger.debug(f"Text field unchanged for note {note_id}")
+                return False
+
+            # Update the note
+            self.update_note(note_id, {"Text": new_text})
+            logger.info(f"Updated Text field for note {note_id}")
+
+            # Update fallback tag if needed
+            note_id_int = int(note_id)
+            note_info = self.akc("notesInfo", notes=[note_id_int])
+            if note_info:
+                current_tags = note_info[0].get("tags", [])
+                has_fallback_tag = "karakeep::fallback::plaintext" in current_tags
+
+                if used_fallback and not has_fallback_tag:
+                    # Add fallback tag
+                    self.akc(
+                        "addTags",
+                        notes=[note_id_int],
+                        tags="karakeep::fallback::plaintext",
+                    )
+                    logger.debug(f"Added fallback tag to note {note_id}")
+                elif not used_fallback and has_fallback_tag:
+                    # Remove fallback tag
+                    self.akc(
+                        "removeTags",
+                        notes=[note_id_int],
+                        tags="karakeep::fallback::plaintext",
+                    )
+                    logger.debug(f"Removed fallback tag from note {note_id}")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to update Text field for note {note_id}: {e}")
+            return False
+
+    @optional_typecheck
     def get_bookmark_tags(self, bookmark_id: str) -> List[Dict[str, Any]]:
         """
         Get tags for a specific bookmark.
