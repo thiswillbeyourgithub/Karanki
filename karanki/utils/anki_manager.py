@@ -408,6 +408,7 @@ class AnkiManager:
         html_search_start = 0
 
         # Split text into words while preserving positions
+        # Use more aggressive pattern to capture more anchor points
         word_pattern = re.compile(r"\S+")
         for match in word_pattern.finditer(plain_text):
             word = match.group()
@@ -416,7 +417,9 @@ class AnkiManager:
             # Search for this word in the HTML starting from our last position
             # Use a cleaned version of the word for more reliable matching
             search_word = re.sub(r"[^\w\s]", "", word)
-            if len(search_word) >= 3:  # Only search for reasonably long words
+            # Lowered minimum length to 2 to create more anchor points
+            # This helps with HTML position mapping, especially in text with many short words
+            if len(search_word) >= 2:
                 html_pos = html_content.find(search_word, html_search_start)
                 if html_pos != -1:
                     # Map this text position to the HTML position
@@ -755,7 +758,10 @@ class AnkiManager:
 
     @optional_typecheck
     def _find_nearest_mapped_position(
-        self, target_pos: int, text_to_html_map: Dict[int, int], search_radius: int = 50
+        self,
+        target_pos: int,
+        text_to_html_map: Dict[int, int],
+        search_radius: int = 1000,
     ) -> Optional[int]:
         """
         Find the nearest mapped position to a target position.
@@ -770,7 +776,7 @@ class AnkiManager:
         text_to_html_map : Dict[int, int]
             The position mapping
         search_radius : int
-            How many positions to search in each direction
+            How many positions to search in each direction (default: 1000)
 
         Returns
         -------
@@ -985,12 +991,13 @@ class AnkiManager:
             f"Text positions after semantic chunking: {adjusted_start_in_full_text}-{adjusted_end_in_full_text}"
         )
 
-        # Map text positions to HTML positions
+        # Map text positions to HTML positions with extended search radius
+        # Using a large radius to handle cases where anchor points are sparse
         html_start = self._find_nearest_mapped_position(
-            adjusted_start_in_full_text, text_to_html_map
+            adjusted_start_in_full_text, text_to_html_map, search_radius=2000
         )
         html_end = self._find_nearest_mapped_position(
-            adjusted_end_in_full_text, text_to_html_map
+            adjusted_end_in_full_text, text_to_html_map, search_radius=2000
         )
 
         if html_start is None or html_end is None:
