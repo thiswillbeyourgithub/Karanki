@@ -20,7 +20,7 @@ from .exceptions import AnkiConnectionError, DeckNotFoundError, ContentProcessin
 
 # Import VERSION from parent module to ensure metadata version stays in sync
 try:
-    from ..karanki import VERSION
+    from karanki.karanki import VERSION
 except ImportError:
     # Fallback for when running tests or from different contexts
     VERSION = "0.1.0"
