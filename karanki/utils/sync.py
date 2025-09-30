@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from loguru import logger
 from py_ankiconnect import PyAnkiconnect
@@ -435,6 +436,66 @@ class KarankiBidirSync:
         return count
 
     @optional_typecheck
+    def _fetch_bookmarks_parallel(
+        self, bookmark_ids: List[str], max_workers: int = 10
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Fetch multiple bookmarks in parallel using thread pool.
+
+        Parameters
+        ----------
+        bookmark_ids : List[str]
+            List of bookmark IDs to fetch
+        max_workers : int
+            Maximum number of parallel threads (default: 10)
+
+        Returns
+        -------
+        Dict[str, Dict[str, Any]]
+            Mapping of bookmark_id -> bookmark_data for successful fetches
+        """
+        bookmark_data_map = {}
+        failed_bookmarks = []
+
+        logger.debug(
+            f"Fetching {len(bookmark_ids)} bookmarks in parallel with {max_workers} workers"
+        )
+
+        # Use ThreadPoolExecutor to fetch bookmarks in parallel
+        # Threading (not multiprocessing) is appropriate here because the work is I/O-bound
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all fetch tasks
+            future_to_bookmark_id = {
+                executor.submit(
+                    self.karakeep_manager.get_bookmark_content, bookmark_id
+                ): bookmark_id
+                for bookmark_id in bookmark_ids
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_bookmark_id):
+                bookmark_id = future_to_bookmark_id[future]
+                try:
+                    bookmark_data = future.result()
+                    bookmark_data_map[bookmark_id] = bookmark_data
+                    logger.debug(f"Successfully fetched bookmark {bookmark_id}")
+                except Exception as e:
+                    logger.error(f"Failed to fetch bookmark {bookmark_id}: {e}")
+                    failed_bookmarks.append(bookmark_id)
+                    if self.debug:
+                        raise
+
+        if failed_bookmarks:
+            logger.warning(
+                f"Failed to fetch {len(failed_bookmarks)} bookmarks: {failed_bookmarks}"
+            )
+
+        logger.info(
+            f"Successfully fetched {len(bookmark_data_map)}/{len(bookmark_ids)} bookmarks"
+        )
+        return bookmark_data_map
+
+    @optional_typecheck
     def _handle_new_highlights(
         self,
         highlights_by_id: Dict[str, Dict],
@@ -442,42 +503,67 @@ class KarankiBidirSync:
         sync_state: Dict[str, Any],
     ) -> int:
         """Handle highlights that exist in Karakeep but not in sync state or Anki."""
+        # Collect all new highlights that need bookmark data
+        new_highlights = [
+            (highlight_id, highlight)
+            for highlight_id, highlight in highlights_by_id.items()
+            if highlight_id not in state_mappings
+        ]
+
+        if not new_highlights:
+            logger.info("No new highlights to process")
+            return 0
+
+        logger.info(f"Processing {len(new_highlights)} new highlights")
+
+        # Extract unique bookmark IDs and fetch them in parallel
+        bookmark_ids = list(
+            set(highlight["bookmarkId"] for _, highlight in new_highlights)
+        )
+        logger.info(
+            f"Fetching {len(bookmark_ids)} unique bookmarks in parallel for {len(new_highlights)} highlights"
+        )
+        bookmark_data_map = self._fetch_bookmarks_parallel(bookmark_ids)
+
+        # Now process each highlight sequentially with pre-fetched bookmark data
         count = 0
-        for highlight_id, highlight in highlights_by_id.items():
-            if highlight_id not in state_mappings:
-                try:
-                    logger.info(
-                        f"New highlight found: {highlight_id} - creating Anki note"
-                    )
+        for highlight_id, highlight in new_highlights:
+            try:
+                bookmark_id = highlight["bookmarkId"]
 
-                    # Get bookmark content for this highlight
-                    bookmark_id = highlight["bookmarkId"]
-                    bookmark_data = self.karakeep_manager.get_bookmark_content(
-                        bookmark_id
-                    )
-
-                    # Create Anki note
-                    note_id = self.anki_manager.create_note(highlight, bookmark_data)
-
-                    # Update sync state
-                    color = highlight.get("color", "yellow")
-                    deck_name = self._get_deck_name_for_color(color)
-
-                    self.state_manager.add_mapping(
-                        sync_state, highlight_id, note_id, bookmark_id, color, deck_name
-                    )
-                    # Save state after each modification to preserve progress
-                    self._save_sync_state(sync_state)
-                    count += 1
-
-                except Exception as e:
+                # Check if we successfully fetched this bookmark
+                if bookmark_id not in bookmark_data_map:
                     logger.error(
-                        f"Failed to create note for highlight {highlight_id}: {e}"
+                        f"Skipping highlight {highlight_id}: bookmark {bookmark_id} fetch failed"
                     )
-                    if self.debug:
-                        raise
-                    # Continue processing other highlights
                     continue
+
+                logger.info(f"New highlight found: {highlight_id} - creating Anki note")
+
+                bookmark_data = bookmark_data_map[bookmark_id]
+
+                # Create Anki note
+                note_id = self.anki_manager.create_note(highlight, bookmark_data)
+
+                # Update sync state
+                color = highlight.get("color", "yellow")
+                deck_name = self._get_deck_name_for_color(color)
+
+                self.state_manager.add_mapping(
+                    sync_state, highlight_id, note_id, bookmark_id, color, deck_name
+                )
+                # Save state after each modification to preserve progress
+                self._save_sync_state(sync_state)
+                count += 1
+
+            except Exception as e:
+                logger.error(f"Failed to create note for highlight {highlight_id}: {e}")
+                if self.debug:
+                    raise
+                # Continue processing other highlights
+                continue
+
+        logger.info(f"Successfully created {count} new notes")
         return count
 
     @optional_typecheck
@@ -583,8 +669,9 @@ class KarankiBidirSync:
     ) -> int:
         """Handle tag synchronization between Karakeep and Anki."""
         logger.info("Syncing tags between Karakeep and Anki...")
-        count = 0
 
+        # Collect highlights that need tag syncing
+        highlights_to_sync = []
         for highlight_id, mapping in state_mappings.items():
             if mapping["status"] != "active":
                 continue
@@ -596,12 +683,30 @@ class KarankiBidirSync:
             bookmark_id = highlight.get("bookmarkId")
             note_id = mapping["note_id"]
 
-            if not bookmark_id:
+            if bookmark_id:
+                highlights_to_sync.append((highlight_id, bookmark_id, note_id))
+
+        if not highlights_to_sync:
+            logger.info("No highlights to sync tags for")
+            return 0
+
+        # Fetch all bookmark data in parallel (which includes tags)
+        bookmark_ids = [bookmark_id for _, bookmark_id, _ in highlights_to_sync]
+        logger.info(f"Fetching tags for {len(bookmark_ids)} bookmarks in parallel")
+        bookmark_data_map = self._fetch_bookmarks_parallel(bookmark_ids)
+
+        # Process tag updates
+        count = 0
+        for highlight_id, bookmark_id, note_id in highlights_to_sync:
+            if bookmark_id not in bookmark_data_map:
+                logger.warning(
+                    f"Skipping tag sync for highlight {highlight_id}: bookmark {bookmark_id} fetch failed"
+                )
                 continue
 
             try:
-                # Get bookmark tags from Karakeep
-                bookmark_tags = self.karakeep_manager.get_bookmark_tags(bookmark_id)
+                bookmark_data = bookmark_data_map[bookmark_id]
+                bookmark_tags = bookmark_data.get("tags", [])
 
                 if bookmark_tags:
                     # Convert to Anki tag format with prefix
@@ -623,7 +728,7 @@ class KarankiBidirSync:
                 if self.debug:
                     raise
 
-        logger.info("Tag synchronization completed")
+        logger.info(f"Tag synchronization completed: updated {count} notes")
         return count
 
     @optional_typecheck
