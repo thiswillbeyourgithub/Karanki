@@ -522,10 +522,12 @@ class AnkiManager:
         # If highlight extends beyond current chunk and there's a next chunk available
         if end_pos > target_chunk.end_index and target_chunk_idx < len(chunks) - 1:
             next_chunk = chunks[target_chunk_idx + 1]
-            context = target_chunk.text + " " + next_chunk.text
+            # Slice from full_text to preserve original spacing including paragraph breaks
+            context = full_text[target_chunk.start_index : next_chunk.end_index]
             context_start_index = target_chunk.start_index
         else:
-            context = target_chunk.text
+            # Slice from full_text to preserve original spacing including paragraph breaks
+            context = full_text[target_chunk.start_index : target_chunk.end_index]
             context_start_index = target_chunk.start_index
 
         # Calculate positions relative to context
