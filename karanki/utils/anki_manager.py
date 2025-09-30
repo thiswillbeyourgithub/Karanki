@@ -226,13 +226,13 @@ class AnkiManager:
         return {
             "Cloze": {
                 "Front": '{{#Header}}<div class="header"><h3>{{Header}}</h3></div><br>{{/Header}}{{cloze:Text}}',
-                "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div><br>{{/Header}}{{#OriginalHighlight}}
+                "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div><br>{{/Header}}{{cloze:Text}}
+{{#OriginalHighlight}}
 <div class="original-highlight">
     <strong>Original Highlight:</strong><br>
     {{OriginalHighlight}}
 </div>
 {{/OriginalHighlight}}
-{{cloze:Text}}
 <div class="source">
     <strong>Source:</strong> {{Source}}
 </div>
