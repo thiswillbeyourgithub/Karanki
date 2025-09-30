@@ -413,9 +413,10 @@ class AnkiManager:
             # Search for this word in the HTML starting from our last position
             # Use a cleaned version of the word for more reliable matching
             search_word = re.sub(r"[^\w\s]", "", word)
-            # Lowered minimum length to 2 to create more anchor points
-            # This helps with HTML position mapping, especially in text with many short words
-            if len(search_word) >= 2:
+            # Lowered minimum length to 1 to create maximum anchor points
+            # This helps with HTML position mapping by creating as many reference points as possible
+            # User is willing to spend extra computation for better accuracy
+            if len(search_word) >= 1:
                 html_pos = html_content.find(search_word, html_search_start)
                 if html_pos != -1:
                     # Map this text position to the HTML position
@@ -757,13 +758,14 @@ class AnkiManager:
         self,
         target_pos: int,
         text_to_html_map: Dict[int, int],
-        search_radius: int = 1000,
+        search_radius: int = 50000,
     ) -> Optional[int]:
         """
-        Find the nearest mapped position to a target position.
+        Find the nearest mapped position to a target position, with interpolation fallback.
 
         When a text position isn't directly in the mapping, this searches
-        nearby positions to find the closest one that is mapped.
+        nearby positions to find the closest one that is mapped. If no nearby
+        position is found, attempts to interpolate between known anchor points.
 
         Parameters
         ----------
@@ -772,7 +774,7 @@ class AnkiManager:
         text_to_html_map : Dict[int, int]
             The position mapping
         search_radius : int
-            How many positions to search in each direction (default: 1000)
+            How many positions to search in each direction (default: 50000)
 
         Returns
         -------
@@ -799,8 +801,64 @@ class AnkiManager:
                 )
                 return text_to_html_map[target_pos - offset]
 
+        # If direct search failed, try interpolation between anchor points
+        # Find the closest anchor points before and after target_pos
+        sorted_text_positions = sorted(text_to_html_map.keys())
+        
+        before_pos = None
+        after_pos = None
+        
+        for pos in sorted_text_positions:
+            if pos < target_pos:
+                before_pos = pos
+            elif pos > target_pos:
+                after_pos = pos
+                break
+        
+        # If we have anchor points on both sides, interpolate
+        if before_pos is not None and after_pos is not None:
+            before_html = text_to_html_map[before_pos]
+            after_html = text_to_html_map[after_pos]
+            
+            # Linear interpolation
+            text_range = after_pos - before_pos
+            html_range = after_html - before_html
+            text_offset = target_pos - before_pos
+            
+            interpolated_html = before_html + int((text_offset / text_range) * html_range)
+            
+            logger.debug(
+                f"Interpolated HTML position {interpolated_html} for text position {target_pos} "
+                f"(between anchors at text {before_pos}->{after_pos}, html {before_html}->{after_html})"
+            )
+            return interpolated_html
+        
+        # If we only have a before anchor, estimate based on average character ratio
+        if before_pos is not None:
+            before_html = text_to_html_map[before_pos]
+            # Rough estimate: assume similar character density
+            offset = target_pos - before_pos
+            estimated_html = before_html + int(offset * 1.2)  # Assume HTML is ~20% larger
+            logger.debug(
+                f"Estimated HTML position {estimated_html} from before anchor "
+                f"(text {before_pos}->html {before_html}, offset {offset})"
+            )
+            return estimated_html
+        
+        # If we only have an after anchor, estimate backwards
+        if after_pos is not None:
+            after_html = text_to_html_map[after_pos]
+            offset = after_pos - target_pos
+            estimated_html = max(0, after_html - int(offset * 1.2))
+            logger.debug(
+                f"Estimated HTML position {estimated_html} from after anchor "
+                f"(text {after_pos}->html {after_html}, offset {offset})"
+            )
+            return estimated_html
+
         logger.warning(
-            f"Could not find mapped position near {target_pos} within radius {search_radius}"
+            f"Could not find or interpolate mapped position for {target_pos} "
+            f"(search radius {search_radius}, {len(text_to_html_map)} anchor points available)"
         )
         return None
 
@@ -988,12 +1046,13 @@ class AnkiManager:
         )
 
         # Map text positions to HTML positions with extended search radius
-        # Using a large radius to handle cases where anchor points are sparse
+        # Using a very large radius to handle cases where anchor points are sparse
+        # User is willing to spend extra computation for accurate HTML position mapping
         html_start = self._find_nearest_mapped_position(
-            adjusted_start_in_full_text, text_to_html_map, search_radius=2000
+            adjusted_start_in_full_text, text_to_html_map, search_radius=50000
         )
         html_end = self._find_nearest_mapped_position(
-            adjusted_end_in_full_text, text_to_html_map, search_radius=2000
+            adjusted_end_in_full_text, text_to_html_map, search_radius=50000
         )
 
         if html_start is None or html_end is None:
