@@ -73,9 +73,10 @@ VERSION = "1.0.1"
 )
 @click.option(
     "-n",
-    "--limit",
+    "--create-only-n",
     type=int,
-    help="Limit creation to the N oldest highlights (all existing highlights will still be synced)",
+    default=-1,
+    help="Limit creation to N new notes per run (-1 for unlimited, 0 is invalid)",
 )
 @click.option(
     "--only-sync",
@@ -96,7 +97,7 @@ def main(
     sync_tags: bool,
     anki_tag_prefix: str,
     verbose: bool,
-    limit: Optional[int],
+    create_only_n: int,
     only_sync: bool,
     debug: bool,
 ) -> None:
@@ -156,13 +157,21 @@ def main(
             format="{time:HH:mm:ss} | {level} | {message}",
         )
 
+    # Validate create_only_n parameter
+    if create_only_n == 0:
+        error_msg = "--create-only-n cannot be 0. Use -1 for unlimited or a positive number to limit."
+        logger.error(error_msg)
+        raise click.ClickException(error_msg)
+
     logger.info(f"Starting Karanki v{VERSION}")
     logger.debug(f"Config: deck_path={deck_path}, sync_state_path={sync_state_path}")
     logger.debug(
         f"Config: karakeep_base_url={karakeep_base_url}, sync_tags={sync_tags}"
     )
     logger.debug(f"Config: anki_tag_prefix={anki_tag_prefix}, verbose={verbose}")
-    logger.debug(f"Config: limit={limit}, only_sync={only_sync}, debug={debug}")
+    logger.debug(
+        f"Config: create_only_n={create_only_n}, only_sync={only_sync}, debug={debug}"
+    )
 
     try:
         # Initialize the sync manager
@@ -172,7 +181,7 @@ def main(
             karakeep_base_url=karakeep_base_url,
             sync_tags=sync_tags,
             anki_tag_prefix=anki_tag_prefix,
-            limit=limit,
+            create_only_n=create_only_n,
             only_sync=only_sync,
             debug=debug,
         )

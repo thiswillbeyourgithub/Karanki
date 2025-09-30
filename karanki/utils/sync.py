@@ -65,7 +65,7 @@ class SyncConfig:
     karakeep_base_url: str
     sync_tags: bool
     anki_tag_prefix: str
-    limit: Optional[int] = None
+    create_only_n: int = -1
     only_sync: bool = False
 
 
@@ -94,7 +94,7 @@ class KarankiBidirSync:
         karakeep_base_url: str = "",
         sync_tags: bool = False,
         anki_tag_prefix: str = "karakeep",
-        limit: Optional[int] = None,
+        create_only_n: int = -1,
         only_sync: bool = False,
         debug: bool = False,
     ):
@@ -113,8 +113,8 @@ class KarankiBidirSync:
             Whether to enable tag synchronization
         anki_tag_prefix : str
             Prefix for Anki tags created from Karakeep tags
-        limit : Optional[int]
-            Maximum number of oldest highlights to create cards for (None for unlimited)
+        create_only_n : int
+            Maximum number of new notes to create per run (-1 for unlimited)
         only_sync : bool
             If True, only sync existing cards without creating new ones
         """
@@ -129,7 +129,7 @@ class KarankiBidirSync:
             karakeep_base_url=karakeep_base_url,
             sync_tags=sync_tags,
             anki_tag_prefix=anki_tag_prefix,
-            limit=limit,
+            create_only_n=create_only_n,
             only_sync=only_sync,
         )
         self.debug = debug
@@ -247,7 +247,7 @@ class KarankiBidirSync:
 
     @optional_typecheck
     def _load_highlights(self) -> List[Dict[str, Any]]:
-        """Load highlights from Karakeep with optional sorting and limiting."""
+        """Load highlights from Karakeep with optional sorting."""
         logger.info("Loading highlights from Karakeep...")
         highlights = self.karakeep_manager.get_all_highlights()
 
@@ -257,18 +257,6 @@ class KarankiBidirSync:
             logger.debug(f"Sorted {len(highlights)} highlights by creation date")
         except Exception as e:
             logger.warning(f"Failed to sort highlights by creation date: {e}")
-
-        # Apply limit if specified and not in only-sync mode
-        if (
-            self.config.limit
-            and not self.config.only_sync
-            and len(highlights) > self.config.limit
-        ):
-            original_count = len(highlights)
-            highlights = highlights[: self.config.limit]
-            logger.info(
-                f"Limited highlights to {self.config.limit} oldest (out of {original_count} total)"
-            )
 
         logger.info(f"Loaded {len(highlights)} highlights from Karakeep")
         return highlights
@@ -513,6 +501,26 @@ class KarankiBidirSync:
         if not new_highlights:
             logger.info("No new highlights to process")
             return 0
+
+        # Sort by creation date (oldest first) to ensure consistent ordering across runs
+        try:
+            new_highlights.sort(key=lambda x: x[1].get("createdAt", ""))
+            logger.debug(
+                f"Sorted {len(new_highlights)} new highlights by creation date"
+            )
+        except Exception as e:
+            logger.warning(f"Failed to sort new highlights by creation date: {e}")
+
+        # Apply create_only_n limit if specified (only when > 0)
+        if (
+            self.config.create_only_n > 0
+            and len(new_highlights) > self.config.create_only_n
+        ):
+            original_count = len(new_highlights)
+            new_highlights = new_highlights[: self.config.create_only_n]
+            logger.info(
+                f"Limiting creation to {self.config.create_only_n} new notes (out of {original_count} total new highlights)"
+            )
 
         logger.info(f"Processing {len(new_highlights)} new highlights")
 
