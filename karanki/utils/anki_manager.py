@@ -201,6 +201,12 @@ class AnkiManager:
             "Cloze": {
                 "Front": '{{#Header}}<div class="header"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}',
                 "Back": """{{#Header}}<div class=\"header\"><h3>{{Header}}</h3></div>{{/Header}}{{cloze:Text}}
+{{#OriginalHighlight}}
+<div class="original-highlight">
+    <strong>Original Highlight:</strong><br>
+    {{OriginalHighlight}}
+</div>
+{{/OriginalHighlight}}
 <div class="source">
     <strong>Source:</strong> {{Source}}
 </div>
@@ -219,7 +225,13 @@ class AnkiManager:
         # Define the notetype structure
         notetype_config = {
             "modelName": self.KARAKEEP_NOTETYPE,
-            "inOrderFields": ["Text", "Header", "Source", "Metadata"],
+            "inOrderFields": [
+                "Text",
+                "Header",
+                "Source",
+                "OriginalHighlight",
+                "Metadata",
+            ],
             "css": """
 .card {
     font-family: arial;
@@ -250,6 +262,17 @@ class AnkiManager:
     margin-bottom: 15px;
     border-bottom: 2px solid #ddd;
     padding-bottom: 5px;
+}
+
+.original-highlight {
+    font-size: 14px;
+    color: #444;
+    background-color: #f9f9f9;
+    border-left: 3px solid #4CAF50;
+    padding: 10px;
+    margin-top: 15px;
+    margin-bottom: 15px;
+    font-style: italic;
 }
             """,
             "cardTemplates": [
@@ -676,6 +699,7 @@ class AnkiManager:
                     "Text": cloze_text,
                     "Header": bookmark_link,
                     "Source": original_url,
+                    "OriginalHighlight": highlight_text.replace("\n", "<br>"),
                     "Metadata": metadata_toml,
                 },
                 "tags": ["karakeep", f"karakeep::color::{highlight_color}"],
