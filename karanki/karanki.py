@@ -35,7 +35,7 @@ except ImportError:
         return callable_obj
 
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 
 @click.command()
