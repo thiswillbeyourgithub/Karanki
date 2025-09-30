@@ -349,10 +349,24 @@ class AnkiManager:
             html_content = html_content[:MAX_HTML_SIZE]
 
         try:
+            from bs4 import NavigableString
+
             soup = BeautifulSoup(html_content, "html.parser")
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
+
+            # Convert heading elements to formatted text with HTML tags
+            # h1 and h2 become bold and underlined, h3 becomes bold
+            for h1 in soup.find_all("h1"):
+                formatted_text = f"<b><u>{h1.get_text()}</u></b>"
+                h1.replace_with(NavigableString(formatted_text))
+            for h2 in soup.find_all("h2"):
+                formatted_text = f"<b><u>{h2.get_text()}</u></b>"
+                h2.replace_with(NavigableString(formatted_text))
+            for h3 in soup.find_all("h3"):
+                formatted_text = f"<b>{h3.get_text()}</b>"
+                h3.replace_with(NavigableString(formatted_text))
 
             # Convert block-level elements to newlines before extracting text
             # This ensures paragraph breaks and line breaks are preserved
