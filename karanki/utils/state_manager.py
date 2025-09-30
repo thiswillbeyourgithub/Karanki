@@ -8,6 +8,7 @@ Created with assistance from aider.chat (https://github.com/Aider-AI/aider/)
 """
 
 import json
+import os
 import shutil
 from pathlib import Path
 from typing import Dict, List, Optional, Any
@@ -136,13 +137,24 @@ class SyncStateManager:
             # Ensure parent directory exists
             self.state_file.parent.mkdir(parents=True, exist_ok=True)
 
-            # Write state file atomically
-            temp_file = self.state_file.with_suffix(".tmp")
-            with open(temp_file, "w", encoding="utf-8") as f:
-                json.dump(state_data, f, indent=2, ensure_ascii=False)
+            # Write state file atomically by writing to temp file first
+            # Append .tmp to preserve the original extension
+            temp_file = Path(str(self.state_file) + ".tmp")
 
-            # Atomic rename
-            temp_file.replace(self.state_file)
+            try:
+                with open(temp_file, "w", encoding="utf-8") as f:
+                    json.dump(state_data, f, indent=2, ensure_ascii=False)
+                    # Ensure all data is written to disk before rename
+                    f.flush()
+                    os.fsync(f.fileno())
+
+                # Atomic rename - this is guaranteed to be atomic on POSIX systems
+                temp_file.replace(self.state_file)
+            except Exception:
+                # Clean up temp file if something went wrong
+                if temp_file.exists():
+                    temp_file.unlink()
+                raise
 
             logger.info(f"Saved sync state to {self.state_file}")
             logger.debug(
