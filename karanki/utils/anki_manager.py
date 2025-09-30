@@ -1114,10 +1114,14 @@ class AnkiManager:
             # Find highlight position in plain text
             highlight_pos = self._find_highlight_in_text(highlight_text, full_text)
 
+            # Track whether we used fallback parsing for tagging
+            used_fallback = False
+
             if not highlight_pos:
                 # Fallback: just create simple cloze
                 cloze_text = f"{{{{c1::{highlight_text}}}}}"
                 logger.debug("Using simple cloze (highlight not found in text)")
+                used_fallback = True
             else:
                 # Try HTML-aware approach first, fall back to plain text on error
                 try:
@@ -1137,6 +1141,7 @@ class AnkiManager:
                         full_text, highlight_text, highlight_pos
                     )
                     logger.debug("Using plain text fallback cloze")
+                    used_fallback = True
 
             # Create source link
             base_url = self.config.karakeep_base_url.replace("/api/v1", "")
@@ -1196,6 +1201,11 @@ class AnkiManager:
                 },
                 "tags": ["karakeep", f"karakeep::color::{highlight_color}"],
             }
+
+            # Add fallback tag if we used plain text parsing instead of HTML-aware parsing
+            if used_fallback:
+                note_config["tags"].append("karakeep::fallback::plaintext")
+                logger.debug("Added karakeep::fallback::plaintext tag to note")
 
             if self.config.sync_tags:
                 # Add individual tags to Anki note tags
