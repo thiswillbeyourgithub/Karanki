@@ -191,7 +191,7 @@ class AnkiManager:
     def ensure_notetype_exists(self) -> None:
         """
         Ensure the Karakeep notetype exists, creating it if necessary.
-        Also updates the templates if the notetype already exists to keep them in sync with code changes.
+        Always updates the templates to keep them in sync with code changes.
 
         The notetype is a cloze type with fields for:
         - Text (the context with cloze)
@@ -203,17 +203,17 @@ class AnkiManager:
             # Check if notetype already exists
             model_names = self.akc("modelNames")
 
-            if self.KARAKEEP_NOTETYPE in model_names:
-                logger.debug(
-                    f"Notetype '{self.KARAKEEP_NOTETYPE}' already exists, updating templates..."
-                )
-                self._update_karakeep_notetype_templates()
-                logger.info(f"Updated notetype '{self.KARAKEEP_NOTETYPE}' templates")
-                return
+            if self.KARAKEEP_NOTETYPE not in model_names:
+                # Create the notetype if it doesn't exist
+                self._create_karakeep_notetype()
+                logger.info(f"Created notetype '{self.KARAKEEP_NOTETYPE}'")
 
-            # Create the notetype
-            self._create_karakeep_notetype()
-            logger.info(f"Created notetype '{self.KARAKEEP_NOTETYPE}'")
+            # Always update templates to ensure they're in sync with code
+            logger.debug(
+                f"Updating templates for notetype '{self.KARAKEEP_NOTETYPE}'..."
+            )
+            self._update_karakeep_notetype_templates()
+            logger.info(f"Updated notetype '{self.KARAKEEP_NOTETYPE}' templates")
 
         except Exception as e:
             error_msg = f"Failed to ensure notetype exists: {e}"
