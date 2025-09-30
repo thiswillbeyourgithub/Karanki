@@ -118,6 +118,7 @@ class KarankiBidirSync:
             If True, only sync existing cards without creating new ones
         """
         # Use platformdirs default paths if not provided
+        using_default_sync_state = sync_state_path is None
         if sync_state_path is None:
             sync_state_path = get_default_sync_state_path()
 
@@ -138,7 +139,12 @@ class KarankiBidirSync:
         lock_file_path = get_default_lock_file_path()
         debug_log_path = get_default_debug_log_path()
 
-        logger.info(f"Using sync state file: {self.config.sync_state_path}")
+        if using_default_sync_state:
+            logger.info(
+                f"Using default sync state file location (platformdirs): {self.config.sync_state_path}"
+            )
+        else:
+            logger.info(f"Using sync state file: {self.config.sync_state_path}")
         logger.info(f"Using lock file: {lock_file_path}")
         logger.info(f"Using debug log: {debug_log_path}")
 
