@@ -516,7 +516,7 @@ class AnkiManager:
 
         if target_chunk is None:
             logger.warning(f"Couldn't find chunk for highlight, using simple cloze")
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         # Determine if we need to include the next chunk
         # If highlight extends beyond current chunk and there's a next chunk available
@@ -550,24 +550,24 @@ class AnkiManager:
             logger.warning(
                 f"Highlight end ({highlight_end_in_context}) exceeds context length ({len(context)}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         if highlight_start_in_context >= len(context) or highlight_start_in_context < 0:
             logger.warning(
                 f"Highlight start ({highlight_start_in_context}) out of context bounds ({len(context)}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         if highlight_start_in_context == highlight_end_in_context:
             logger.warning(
                 f"Highlight start and end are the same ({highlight_start_in_context}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         # Ensure we have valid sentence indices
         if not sentences_indexes:
             logger.warning("No sentence indices found, using simple cloze")
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         # Adjust indexes to sentence borders
         adjusted_start = adjust_index_to_sentence(
@@ -586,31 +586,31 @@ class AnkiManager:
             logger.warning(
                 "Failed to adjust to sentence boundaries, using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         if adjusted_start == adjusted_end:
             logger.warning(
                 f"Adjusted borders are the same ({adjusted_start}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         if adjusted_end <= 0 or adjusted_start < 0:
             logger.warning(
                 f"Invalid adjusted positions (start: {adjusted_start}, end: {adjusted_end}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         if adjusted_end > len(context) or adjusted_start >= len(context):
             logger.warning(
                 f"Adjusted positions exceed context (start: {adjusted_start}, end: {adjusted_end}, len: {len(context)}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         if adjusted_end <= adjusted_start:
             logger.warning(
                 f"Wrong order of adjusted borders (start: {adjusted_start}, end: {adjusted_end}), using simple cloze"
             )
-            return f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+            return "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
 
         # Create cloze deletion
         before_highlight = context[:adjusted_start]
@@ -697,7 +697,7 @@ class AnkiManager:
             highlight_pos = self._find_highlight_in_text(highlight_text, full_text)
             if not highlight_pos:
                 # Fallback: just create simple cloze with proper HTML line breaks
-                cloze_text = f"{{{{c1::{highlight_text.replace(chr(10), '<br>')}}}}}}"
+                cloze_text = "{{c1::" + highlight_text.replace("\n", "<br>") + "}}"
             else:
                 # Create context with cloze deletion
                 cloze_text = self._create_context_with_cloze(
