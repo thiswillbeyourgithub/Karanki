@@ -10,4 +10,4 @@ push = false
 
 [bumpver.file_patterns]
 "bumpver.toml" = ['current_version = "{version}"']
-"karanki/karanki.py" = ['VERSION = "{version}"']
+"karanki/_version.py" = ['VERSION = "{version}"']
