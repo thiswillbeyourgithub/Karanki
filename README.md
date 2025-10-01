@@ -1,5 +1,7 @@
 # Karanki
 
+# THIS IS STILL A WORK IN PROGRESS
+
 **Bidirectional synchronization between Karakeep highlights and Anki flashcards**
 
 Karanki creates Anki flashcards from your Karakeep highlights and organizes them by color-coded retention levels. It provides bidirectional sync, keeping your highlights and flashcards in sync across both platforms.
