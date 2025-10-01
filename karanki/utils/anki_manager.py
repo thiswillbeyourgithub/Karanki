@@ -17,13 +17,7 @@ from chonkie import SemanticChunker
 from corpus_matcher import find_best_substring_match
 
 from .exceptions import AnkiConnectionError, DeckNotFoundError, ContentProcessingError
-
-# Import VERSION from parent module to ensure metadata version stays in sync
-try:
-    from karanki.karanki import VERSION
-except ImportError:
-    # Fallback for when running tests or from different contexts
-    VERSION = "0.1.0"
+from karanki._version import VERSION
 
 # Beartype decorator pattern for optional runtime type checking
 try:
