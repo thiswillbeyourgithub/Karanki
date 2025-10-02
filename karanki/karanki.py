@@ -14,15 +14,15 @@ from loguru import logger
 from pathlib import Path
 from typing import Optional
 
-# Import using relative path to avoid sys.path manipulation
+# Import using absolute imports from karanki package
 try:
-    from utils.sync import KarankiBidirSync, get_default_debug_log_path
+    from karanki.utils.sync import KarankiBidirSync, get_default_debug_log_path
 except ImportError:
-    # Fallback for when running from different directories
+    # Fallback: Add parent directory to path so karanki package is importable
     import sys
 
-    sys.path.append(str(Path(__file__).parent))
-    from utils.sync import KarankiBidirSync, get_default_debug_log_path
+    sys.path.insert(0, str(Path(__file__).parent.parent))
+    from karanki.utils.sync import KarankiBidirSync, get_default_debug_log_path
 
 # Beartype decorator pattern for optional runtime type checking
 try:
@@ -35,7 +35,12 @@ except ImportError:
         return callable_obj
 
 
-from ._version import VERSION
+# Import version using absolute imports
+try:
+    from karanki._version import VERSION
+except ImportError:
+    # Fallback is already set up above, just import directly
+    from _version import VERSION
 
 
 @click.command()
