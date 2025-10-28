@@ -132,7 +132,7 @@ def main(
         )
 
     # Set up logging
-    logger.remove()  # Remove default handler
+    # logger.remove()  # Remove default handler
 
     # Use platformdirs for debug log location
     debug_log_path = get_default_debug_log_path()
